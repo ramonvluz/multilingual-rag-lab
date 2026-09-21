@@ -1,4 +1,4 @@
-.PHONY: setup lint format typecheck test integration build up down smoke ingest reindex benchmark
+.PHONY: setup lint format typecheck test integration build up down smoke ingest ingest-corpus validate-corpus reindex benchmark
 setup:
 	uv sync --all-groups
 lint:
@@ -21,6 +21,10 @@ smoke:
 	uv run pytest tests/smoke
 ingest:
 	uv run rag-lab ingest $(FILE)
+validate-corpus:
+	uv run rag-lab validate-corpus data/corpus/v1.0.0
+ingest-corpus:
+	uv run rag-lab ingest-corpus data/corpus/v1.0.0
 reindex:
 	uv run rag-lab reindex
 benchmark:

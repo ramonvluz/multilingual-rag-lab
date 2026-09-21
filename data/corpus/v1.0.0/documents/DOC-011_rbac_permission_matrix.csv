@@ -1,0 +1,9 @@
+﻿section_id,capability_code,capability,environment,viewer,analyst,operator,workspace_admin,security_admin,notes
+DOC-011#SEC-01,CAP-RUN-VIEW,View run metadata,all,yes,yes,yes,yes,yes,Payload visibility is separate
+DOC-011#SEC-01,CAP-PAYLOAD-REDACTED,View redacted payload,all,no,no,yes,yes,yes,Subject to retention
+DOC-011#SEC-01,CAP-PAYLOAD-RAW,Export unredacted payload,production,no,no,no,no,yes,Requires recent reauthentication
+DOC-011#SEC-01,CAP-FLOW-PUBLISH,Publish workflow revision,production,no,no,yes,yes,no,Operator needs assigned workflow scope
+DOC-011#SEC-01,CAP-MFA-RESET,Reset member MFA,all,no,no,no,no,yes,Dual verification required
+DOC-011#SEC-01,CAP-ROLE-ASSIGN,Assign workspace roles,all,no,no,no,yes,yes,Cannot grant a role above own authority
+DOC-011#SEC-01,CAP-SVC-CRED,Create service credential,production,no,no,no,yes,yes,Security Admin approval required for payload scopes
+DOC-011#SEC-01,CAP-REGION-MIGRATE,Approve region migration,production,no,no,no,no,yes,Operations approval also required

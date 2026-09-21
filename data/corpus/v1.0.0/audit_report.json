@@ -1,0 +1,81 @@
+{
+  "status": "PASS",
+  "document_count": 24,
+  "language_distribution": {
+    "en": 8,
+    "es": 4,
+    "pt-BR": 12
+  },
+  "format_distribution": {
+    "csv": 3,
+    "docx": 5,
+    "html": 5,
+    "md": 5,
+    "pdf": 5,
+    "xlsx": 1
+  },
+  "category_distribution": {
+    "incidentes_postmortems": 2,
+    "operacoes_e_runbooks": 3,
+    "planos_limites_sla": 3,
+    "politicas_procedimentos_internos": 2,
+    "produto_e_funcionalidades": 4,
+    "release_notes": 3,
+    "seguranca_autenticacao_acesso": 3,
+    "suporte_e_troubleshooting": 4
+  },
+  "retrieval_challenge_coverage": {
+    "ambiguous": 14,
+    "conflict": 4,
+    "cross-lingual": 10,
+    "exact": 13,
+    "mixed": 9,
+    "multi-context": 12,
+    "semantic": 15,
+    "versions": 5
+  },
+  "section_identifier_count": 186,
+  "section_identifiers_detected_in_files": 186,
+  "extractable_word_count_excluding_xlsx": 17800,
+  "estimated_chunks": {
+    "100_words": 178,
+    "150_words": 119,
+    "note": "Actual count depends on parser, tokenization, overlap, and table handling."
+  },
+  "historical_chain": [
+    {
+      "document_id": "DOC-015",
+      "version": "2.3.0",
+      "date": "2025-11-18",
+      "status": "superseded",
+      "superseded_by": "DOC-017"
+    },
+    {
+      "document_id": "DOC-016",
+      "version": "2.4.0",
+      "date": "2026-03-14",
+      "status": "superseded",
+      "superseded_by": "DOC-017"
+    },
+    {
+      "document_id": "DOC-017",
+      "version": "2.5.1",
+      "date": "2026-07-15",
+      "status": "current",
+      "superseded_by": null
+    }
+  ],
+  "intentional_unanswerable_gaps": [
+    "Mobile SDK implementation",
+    "On-premises deployment procedure",
+    "Billing invoice tax calculation",
+    "Voice-call support workflow"
+  ],
+  "limitations": [
+    "Synthetic corpus only",
+    "One XLSX workbook",
+    "No images or scanned documents",
+    "Repeated governance sections add realistic template noise"
+  ],
+  "issues": []
+}

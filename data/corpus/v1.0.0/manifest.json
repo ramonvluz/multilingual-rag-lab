@@ -1,0 +1,924 @@
+{
+  "corpus_id": "MRL-CORPUS-001",
+  "corpus_version": "1.0.0",
+  "created_at": "2026-09-21",
+  "synthetic": true,
+  "company": {
+    "name": "Nuvexa Sistemas",
+    "product": "OrbeFlow",
+    "description": "Empresa fictícia B2B que fornece uma plataforma de automação operacional orientada a eventos.",
+    "modules": [
+      "Flow Studio",
+      "Relay Hub",
+      "Access Gate",
+      "Insight Board",
+      "Vault Records"
+    ]
+  },
+  "conventions": {
+    "documents": "DOC-NNN",
+    "sections": "DOC-NNN#SEC-NN",
+    "runs": "RUN-XXXXXXXXXXXX",
+    "tasks": "TSK-XXXXXXXX",
+    "connections": "CON-*",
+    "workflow_revisions": "FLW-<name>-R<revision>",
+    "change_tickets": [
+      "CHG-*",
+      "CHG-EMR-*",
+      "CHG-MIG-*"
+    ],
+    "plans": [
+      "Starter",
+      "Growth",
+      "Enterprise"
+    ],
+    "api_versions": [
+      "API-V2",
+      "API-V3"
+    ]
+  },
+  "documents": [
+    {
+      "filename": "DOC-001_visao_geral_orbeflow.md",
+      "title": "Visão geral da plataforma OrbeFlow",
+      "language": "pt-BR",
+      "category": "produto_e_funcionalidades",
+      "format": "md",
+      "version": "3.0",
+      "date": "2026-06-12",
+      "status": "current",
+      "challenges": [
+        "semantic",
+        "ambiguous",
+        "multi-context"
+      ],
+      "relations": [
+        "DOC-002",
+        "DOC-003",
+        "DOC-018"
+      ],
+      "document_id": "DOC-001",
+      "short_description": "Apresenta módulos, objetos centrais e ciclo de execução da plataforma.",
+      "section_identifiers": [
+        "DOC-001#SEC-01",
+        "DOC-001#SEC-02",
+        "DOC-001#SEC-03",
+        "DOC-001#SEC-04",
+        "DOC-001#SEC-05",
+        "DOC-001#SEC-06",
+        "DOC-001#SEC-07",
+        "DOC-001#SEC-08",
+        "DOC-001#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "multi_context": "Combine this document with one or more listed relations."
+      }
+    },
+    {
+      "filename": "DOC-002_workflow_execution_model.html",
+      "title": "Workflow execution model",
+      "language": "en",
+      "category": "produto_e_funcionalidades",
+      "format": "html",
+      "version": "3.1",
+      "date": "2026-06-18",
+      "status": "current",
+      "challenges": [
+        "semantic",
+        "exact",
+        "mixed",
+        "ambiguous"
+      ],
+      "relations": [
+        "DOC-001",
+        "DOC-012",
+        "DOC-016",
+        "DOC-017"
+      ],
+      "document_id": "DOC-002",
+      "short_description": "Technical product guide for triggers, revisions, retries, and human review.",
+      "section_identifiers": [
+        "DOC-002#SEC-01",
+        "DOC-002#SEC-02",
+        "DOC-002#SEC-03",
+        "DOC-002#SEC-04",
+        "DOC-002#SEC-05",
+        "DOC-002#SEC-06",
+        "DOC-002#SEC-07",
+        "DOC-002#SEC-08",
+        "DOC-002#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "exact": "Preserve codes, IDs, endpoints, plan names, or versions."
+      }
+    },
+    {
+      "filename": "DOC-003_guia_insight_board.docx",
+      "title": "Guia operacional do Insight Board",
+      "language": "pt-BR",
+      "category": "produto_e_funcionalidades",
+      "format": "docx",
+      "version": "2.2",
+      "date": "2026-05-30",
+      "status": "current",
+      "challenges": [
+        "semantic",
+        "ambiguous",
+        "multi-context"
+      ],
+      "relations": [
+        "DOC-001",
+        "DOC-013",
+        "DOC-019"
+      ],
+      "document_id": "DOC-003",
+      "short_description": "Guia de métricas, filtros e interpretação do painel operacional.",
+      "section_identifiers": [
+        "DOC-003#SEC-01",
+        "DOC-003#SEC-02",
+        "DOC-003#SEC-03",
+        "DOC-003#SEC-04",
+        "DOC-003#SEC-05",
+        "DOC-003#SEC-06",
+        "DOC-003#SEC-07",
+        "DOC-003#SEC-08",
+        "DOC-003#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "multi_context": "Combine this document with one or more listed relations."
+      }
+    },
+    {
+      "filename": "DOC-004_modulo_control_regional.pdf",
+      "title": "Operación regional en OrbeFlow",
+      "language": "es",
+      "category": "produto_e_funcionalidades",
+      "format": "pdf",
+      "version": "1.4",
+      "date": "2026-04-22",
+      "status": "current",
+      "challenges": [
+        "semantic",
+        "cross-lingual",
+        "multi-context"
+      ],
+      "relations": [
+        "DOC-014",
+        "DOC-023"
+      ],
+      "document_id": "DOC-004",
+      "short_description": "Explica regiones, zonas horarias y rutas de datos para equipos hispanohablantes.",
+      "section_identifiers": [
+        "DOC-004#SEC-01",
+        "DOC-004#SEC-02",
+        "DOC-004#SEC-03",
+        "DOC-004#SEC-04",
+        "DOC-004#SEC-05",
+        "DOC-004#SEC-06",
+        "DOC-004#SEC-07",
+        "DOC-004#SEC-08",
+        "DOC-004#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "cross_lingual": "Ask in another corpus language while retaining key entity meaning.",
+        "multi_context": "Combine this document with one or more listed relations."
+      }
+    },
+    {
+      "filename": "DOC-005_solucao_problemas_login.html",
+      "title": "Solução de problemas de login",
+      "language": "pt-BR",
+      "category": "suporte_e_troubleshooting",
+      "format": "html",
+      "version": "2.1",
+      "date": "2026-07-03",
+      "status": "current",
+      "challenges": [
+        "ambiguous",
+        "semantic",
+        "exact"
+      ],
+      "relations": [
+        "DOC-009",
+        "DOC-010"
+      ],
+      "document_id": "DOC-005",
+      "short_description": "Diagnóstico de login, SSO, sessão e bloqueios sem cobrir recuperação de MFA.",
+      "section_identifiers": [
+        "DOC-005#SEC-01",
+        "DOC-005#SEC-02",
+        "DOC-005#SEC-03",
+        "DOC-005#SEC-04",
+        "DOC-005#SEC-05",
+        "DOC-005#SEC-06",
+        "DOC-005#SEC-07",
+        "DOC-005#SEC-08",
+        "DOC-005#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "exact": "Preserve codes, IDs, endpoints, plan names, or versions."
+      }
+    },
+    {
+      "filename": "DOC-006_api_error_troubleshooting.md",
+      "title": "API error troubleshooting guide",
+      "language": "en",
+      "category": "suporte_e_troubleshooting",
+      "format": "md",
+      "version": "3.0",
+      "date": "2026-07-05",
+      "status": "current",
+      "challenges": [
+        "exact",
+        "mixed",
+        "ambiguous"
+      ],
+      "relations": [
+        "DOC-020",
+        "DOC-012"
+      ],
+      "document_id": "DOC-006",
+      "short_description": "Maps common API errors to diagnostic actions and retry guidance.",
+      "section_identifiers": [
+        "DOC-006#SEC-01",
+        "DOC-006#SEC-02",
+        "DOC-006#SEC-03",
+        "DOC-006#SEC-04",
+        "DOC-006#SEC-05",
+        "DOC-006#SEC-06",
+        "DOC-006#SEC-07",
+        "DOC-006#SEC-08",
+        "DOC-006#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "exact": "Preserve codes, IDs, endpoints, plan names, or versions."
+      }
+    },
+    {
+      "filename": "DOC-007_diagnostico_conectores.docx",
+      "title": "Diagnóstico de conectores empresariales",
+      "language": "es",
+      "category": "suporte_e_troubleshooting",
+      "format": "docx",
+      "version": "1.8",
+      "date": "2026-06-28",
+      "status": "current",
+      "challenges": [
+        "semantic",
+        "mixed",
+        "cross-lingual"
+      ],
+      "relations": [
+        "DOC-002",
+        "DOC-012",
+        "DOC-020"
+      ],
+      "document_id": "DOC-007",
+      "short_description": "Guía regional para credenciales, conectividad y mapeo de conectores.",
+      "section_identifiers": [
+        "DOC-007#SEC-01",
+        "DOC-007#SEC-02",
+        "DOC-007#SEC-03",
+        "DOC-007#SEC-04",
+        "DOC-007#SEC-05",
+        "DOC-007#SEC-06",
+        "DOC-007#SEC-07",
+        "DOC-007#SEC-08",
+        "DOC-007#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "cross_lingual": "Ask in another corpus language while retaining key entity meaning."
+      }
+    },
+    {
+      "filename": "DOC-008_falhas_sincronizacao.pdf",
+      "title": "Falhas de sincronização e registros ausentes",
+      "language": "pt-BR",
+      "category": "suporte_e_troubleshooting",
+      "format": "pdf",
+      "version": "2.0",
+      "date": "2026-07-01",
+      "status": "current",
+      "challenges": [
+        "semantic",
+        "ambiguous",
+        "multi-context"
+      ],
+      "relations": [
+        "DOC-001",
+        "DOC-012",
+        "DOC-018"
+      ],
+      "document_id": "DOC-008",
+      "short_description": "Procedimento para atrasos, duplicidade aparente e divergência entre origem e destino.",
+      "section_identifiers": [
+        "DOC-008#SEC-01",
+        "DOC-008#SEC-02",
+        "DOC-008#SEC-03",
+        "DOC-008#SEC-04",
+        "DOC-008#SEC-05",
+        "DOC-008#SEC-06",
+        "DOC-008#SEC-07",
+        "DOC-008#SEC-08",
+        "DOC-008#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "multi_context": "Combine this document with one or more listed relations."
+      }
+    },
+    {
+      "filename": "DOC-009_authentication_security_policy.pdf",
+      "title": "Authentication and session security policy",
+      "language": "en",
+      "category": "seguranca_autenticacao_acesso",
+      "format": "pdf",
+      "version": "4.0",
+      "date": "2026-07-10",
+      "status": "current",
+      "challenges": [
+        "ambiguous",
+        "semantic",
+        "cross-lingual",
+        "versions"
+      ],
+      "relations": [
+        "DOC-005",
+        "DOC-010",
+        "DOC-011",
+        "DOC-023"
+      ],
+      "document_id": "DOC-009",
+      "short_description": "Current policy for MFA, sessions, SSO, break-glass access, and service accounts.",
+      "section_identifiers": [
+        "DOC-009#SEC-01",
+        "DOC-009#SEC-02",
+        "DOC-009#SEC-03",
+        "DOC-009#SEC-04",
+        "DOC-009#SEC-05",
+        "DOC-009#SEC-06",
+        "DOC-009#SEC-07",
+        "DOC-009#SEC-08",
+        "DOC-009#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "cross_lingual": "Ask in another corpus language while retaining key entity meaning."
+      }
+    },
+    {
+      "filename": "DOC-010_recuperacao_mfa.docx",
+      "title": "Procedimento de recuperação de MFA",
+      "language": "pt-BR",
+      "category": "seguranca_autenticacao_acesso",
+      "format": "docx",
+      "version": "3.2",
+      "date": "2026-07-12",
+      "status": "current",
+      "challenges": [
+        "semantic",
+        "ambiguous",
+        "mixed",
+        "cross-lingual"
+      ],
+      "relations": [
+        "DOC-005",
+        "DOC-009",
+        "DOC-011"
+      ],
+      "document_id": "DOC-010",
+      "short_description": "Runbook controlado para perda de autenticador ou troca de aparelho.",
+      "section_identifiers": [
+        "DOC-010#SEC-01",
+        "DOC-010#SEC-02",
+        "DOC-010#SEC-03",
+        "DOC-010#SEC-04",
+        "DOC-010#SEC-05",
+        "DOC-010#SEC-06",
+        "DOC-010#SEC-07",
+        "DOC-010#SEC-08",
+        "DOC-010#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "cross_lingual": "Ask in another corpus language while retaining key entity meaning."
+      }
+    },
+    {
+      "filename": "DOC-011_rbac_permission_matrix.csv",
+      "title": "RBAC permission matrix",
+      "language": "en",
+      "category": "seguranca_autenticacao_acesso",
+      "format": "csv",
+      "version": "2.5",
+      "date": "2026-07-10",
+      "status": "current",
+      "challenges": [
+        "exact",
+        "ambiguous",
+        "cross-lingual"
+      ],
+      "relations": [
+        "DOC-009",
+        "DOC-010",
+        "DOC-023"
+      ],
+      "document_id": "DOC-011",
+      "short_description": "Structured role-to-capability matrix for Access Gate.",
+      "section_identifiers": [
+        "DOC-011#SEC-01"
+      ],
+      "candidate_query_notes": {
+        "exact": "Preserve codes, IDs, endpoints, plan names, or versions.",
+        "cross_lingual": "Ask in another corpus language while retaining key entity meaning."
+      }
+    },
+    {
+      "filename": "DOC-012_event_delivery_runbook.md",
+      "title": "Event delivery runbook",
+      "language": "en",
+      "category": "operacoes_e_runbooks",
+      "format": "md",
+      "version": "3.0",
+      "date": "2026-07-08",
+      "status": "current",
+      "challenges": [
+        "exact",
+        "mixed",
+        "multi-context",
+        "cross-lingual"
+      ],
+      "relations": [
+        "DOC-006",
+        "DOC-007",
+        "DOC-013",
+        "DOC-021"
+      ],
+      "document_id": "DOC-012",
+      "short_description": "Operational response for queue, webhook, and connector delivery failures.",
+      "section_identifiers": [
+        "DOC-012#SEC-01",
+        "DOC-012#SEC-02",
+        "DOC-012#SEC-03",
+        "DOC-012#SEC-04",
+        "DOC-012#SEC-05",
+        "DOC-012#SEC-06",
+        "DOC-012#SEC-07",
+        "DOC-012#SEC-08",
+        "DOC-012#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "exact": "Preserve codes, IDs, endpoints, plan names, or versions.",
+        "cross_lingual": "Ask in another corpus language while retaining key entity meaning.",
+        "multi_context": "Combine this document with one or more listed relations."
+      }
+    },
+    {
+      "filename": "DOC-013_runbook_degradacao_servico.pdf",
+      "title": "Runbook de degradação do serviço",
+      "language": "pt-BR",
+      "category": "operacoes_e_runbooks",
+      "format": "pdf",
+      "version": "2.6",
+      "date": "2026-07-09",
+      "status": "current",
+      "challenges": [
+        "semantic",
+        "ambiguous",
+        "multi-context"
+      ],
+      "relations": [
+        "DOC-003",
+        "DOC-012",
+        "DOC-019",
+        "DOC-022"
+      ],
+      "document_id": "DOC-013",
+      "short_description": "Runbook geral para latência, backlog e indisponibilidade parcial.",
+      "section_identifiers": [
+        "DOC-013#SEC-01",
+        "DOC-013#SEC-02",
+        "DOC-013#SEC-03",
+        "DOC-013#SEC-04",
+        "DOC-013#SEC-05",
+        "DOC-013#SEC-06",
+        "DOC-013#SEC-07",
+        "DOC-013#SEC-08",
+        "DOC-013#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "multi_context": "Combine this document with one or more listed relations."
+      }
+    },
+    {
+      "filename": "DOC-014_runbook_residencia_datos.html",
+      "title": "Runbook de residencia y transferencia de datos",
+      "language": "es",
+      "category": "operacoes_e_runbooks",
+      "format": "html",
+      "version": "1.3",
+      "date": "2026-06-25",
+      "status": "current",
+      "challenges": [
+        "semantic",
+        "cross-lingual",
+        "multi-context"
+      ],
+      "relations": [
+        "DOC-004",
+        "DOC-023"
+      ],
+      "document_id": "DOC-014",
+      "short_description": "Procedimiento para evaluar región, transferencia por conectores y migración.",
+      "section_identifiers": [
+        "DOC-014#SEC-01",
+        "DOC-014#SEC-02",
+        "DOC-014#SEC-03",
+        "DOC-014#SEC-04",
+        "DOC-014#SEC-05",
+        "DOC-014#SEC-06",
+        "DOC-014#SEC-07",
+        "DOC-014#SEC-08",
+        "DOC-014#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "cross_lingual": "Ask in another corpus language while retaining key entity meaning.",
+        "multi_context": "Combine this document with one or more listed relations."
+      }
+    },
+    {
+      "filename": "DOC-015_release_notes_v2_3.md",
+      "title": "Notas da versão 2.3",
+      "language": "pt-BR",
+      "category": "release_notes",
+      "format": "md",
+      "version": "2.3.0",
+      "date": "2025-11-18",
+      "status": "superseded",
+      "challenges": [
+        "versions",
+        "conflict",
+        "exact"
+      ],
+      "relations": [
+        "DOC-009",
+        "DOC-016",
+        "DOC-017",
+        "DOC-018"
+      ],
+      "document_id": "DOC-015",
+      "short_description": "Registro histórico com limites e comportamento posteriormente alterados.",
+      "section_identifiers": [
+        "DOC-015#SEC-01",
+        "DOC-015#SEC-02",
+        "DOC-015#SEC-03",
+        "DOC-015#SEC-04",
+        "DOC-015#SEC-05",
+        "DOC-015#SEC-06",
+        "DOC-015#SEC-07",
+        "DOC-015#SEC-08",
+        "DOC-015#SEC-09"
+      ],
+      "superseded_by": "DOC-017",
+      "candidate_query_notes": {
+        "exact": "Preserve codes, IDs, endpoints, plan names, or versions."
+      }
+    },
+    {
+      "filename": "DOC-016_release_notes_v2_4.html",
+      "title": "OrbeFlow 2.4 release notes",
+      "language": "en",
+      "category": "release_notes",
+      "format": "html",
+      "version": "2.4.0",
+      "date": "2026-03-14",
+      "status": "superseded",
+      "challenges": [
+        "versions",
+        "conflict",
+        "exact",
+        "cross-lingual"
+      ],
+      "relations": [
+        "DOC-015",
+        "DOC-017",
+        "DOC-020"
+      ],
+      "document_id": "DOC-016",
+      "short_description": "Historical release introducing API-V3 preview and revised limits.",
+      "section_identifiers": [
+        "DOC-016#SEC-01",
+        "DOC-016#SEC-02",
+        "DOC-016#SEC-03",
+        "DOC-016#SEC-04",
+        "DOC-016#SEC-05",
+        "DOC-016#SEC-06",
+        "DOC-016#SEC-07",
+        "DOC-016#SEC-08",
+        "DOC-016#SEC-09"
+      ],
+      "superseded_by": "DOC-017",
+      "candidate_query_notes": {
+        "exact": "Preserve codes, IDs, endpoints, plan names, or versions.",
+        "cross_lingual": "Ask in another corpus language while retaining key entity meaning."
+      }
+    },
+    {
+      "filename": "DOC-017_notas_versao_2_5.docx",
+      "title": "Notas da versão 2.5",
+      "language": "pt-BR",
+      "category": "release_notes",
+      "format": "docx",
+      "version": "2.5.1",
+      "date": "2026-07-15",
+      "status": "current",
+      "challenges": [
+        "versions",
+        "conflict",
+        "exact",
+        "mixed"
+      ],
+      "relations": [
+        "DOC-002",
+        "DOC-009",
+        "DOC-015",
+        "DOC-016",
+        "DOC-018",
+        "DOC-020"
+      ],
+      "document_id": "DOC-017",
+      "short_description": "Versão atual com API-V3 GA, sessões reduzidas e scheduler atualizado.",
+      "section_identifiers": [
+        "DOC-017#SEC-01",
+        "DOC-017#SEC-02",
+        "DOC-017#SEC-03",
+        "DOC-017#SEC-04",
+        "DOC-017#SEC-05",
+        "DOC-017#SEC-06",
+        "DOC-017#SEC-07",
+        "DOC-017#SEC-08",
+        "DOC-017#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "exact": "Preserve codes, IDs, endpoints, plan names, or versions."
+      }
+    },
+    {
+      "filename": "DOC-018_catalogo_planos_limites.csv",
+      "title": "Catálogo de planos e limites",
+      "language": "pt-BR",
+      "category": "planos_limites_sla",
+      "format": "csv",
+      "version": "2026.07",
+      "date": "2026-07-15",
+      "status": "current",
+      "challenges": [
+        "exact",
+        "mixed",
+        "versions",
+        "conflict"
+      ],
+      "relations": [
+        "DOC-001",
+        "DOC-008",
+        "DOC-012",
+        "DOC-015",
+        "DOC-016",
+        "DOC-017"
+      ],
+      "document_id": "DOC-018",
+      "short_description": "Tabela normativa de planos, limites operacionais e janelas de idempotência.",
+      "section_identifiers": [
+        "DOC-018#SEC-01"
+      ],
+      "candidate_query_notes": {
+        "exact": "Preserve codes, IDs, endpoints, plan names, or versions."
+      }
+    },
+    {
+      "filename": "DOC-019_service_levels.xlsx",
+      "title": "Service levels and support targets",
+      "language": "en",
+      "category": "planos_limites_sla",
+      "format": "xlsx",
+      "version": "2026.2",
+      "date": "2026-07-15",
+      "status": "current",
+      "challenges": [
+        "exact",
+        "mixed",
+        "ambiguous",
+        "multi-context"
+      ],
+      "relations": [
+        "DOC-003",
+        "DOC-005",
+        "DOC-013",
+        "DOC-022"
+      ],
+      "document_id": "DOC-019",
+      "short_description": "Workbook of availability commitments, priority definitions, and response targets.",
+      "section_identifiers": [
+        "DOC-019#SEC-01",
+        "DOC-019#SEC-02",
+        "DOC-019#SEC-03"
+      ],
+      "candidate_query_notes": {
+        "exact": "Preserve codes, IDs, endpoints, plan names, or versions.",
+        "multi_context": "Combine this document with one or more listed relations."
+      }
+    },
+    {
+      "filename": "DOC-020_catalogo_endpoints_api.csv",
+      "title": "Catálogo de endpoints API-V3",
+      "language": "es",
+      "category": "planos_limites_sla",
+      "format": "csv",
+      "version": "3.0",
+      "date": "2026-07-15",
+      "status": "current",
+      "challenges": [
+        "exact",
+        "mixed",
+        "cross-lingual"
+      ],
+      "relations": [
+        "DOC-006",
+        "DOC-016",
+        "DOC-017"
+      ],
+      "document_id": "DOC-020",
+      "short_description": "Catálogo estructurado de endpoints, scopes, idempotencia y códigos.",
+      "section_identifiers": [
+        "DOC-020#SEC-01"
+      ],
+      "candidate_query_notes": {
+        "exact": "Preserve codes, IDs, endpoints, plan names, or versions.",
+        "cross_lingual": "Ask in another corpus language while retaining key entity meaning."
+      }
+    },
+    {
+      "filename": "DOC-021_postmortem_webhook_delay.html",
+      "title": "Postmortem: delayed outbound webhooks",
+      "language": "en",
+      "category": "incidentes_postmortems",
+      "format": "html",
+      "version": "1.0",
+      "date": "2026-05-09",
+      "status": "final",
+      "challenges": [
+        "semantic",
+        "exact",
+        "multi-context",
+        "ambiguous"
+      ],
+      "relations": [
+        "DOC-012",
+        "DOC-013"
+      ],
+      "document_id": "DOC-021",
+      "short_description": "Incident review for a retry amplification event affecting outbound webhooks.",
+      "section_identifiers": [
+        "DOC-021#SEC-01",
+        "DOC-021#SEC-02",
+        "DOC-021#SEC-03",
+        "DOC-021#SEC-04",
+        "DOC-021#SEC-05",
+        "DOC-021#SEC-06",
+        "DOC-021#SEC-07",
+        "DOC-021#SEC-08",
+        "DOC-021#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "exact": "Preserve codes, IDs, endpoints, plan names, or versions.",
+        "multi_context": "Combine this document with one or more listed relations."
+      }
+    },
+    {
+      "filename": "DOC-022_postmortem_fila_br_south.pdf",
+      "title": "Postmortem da fila BR-SOUTH",
+      "language": "pt-BR",
+      "category": "incidentes_postmortems",
+      "format": "pdf",
+      "version": "1.0",
+      "date": "2026-06-21",
+      "status": "final",
+      "challenges": [
+        "semantic",
+        "multi-context",
+        "ambiguous"
+      ],
+      "relations": [
+        "DOC-003",
+        "DOC-013",
+        "DOC-019"
+      ],
+      "document_id": "DOC-022",
+      "short_description": "Análise de saturação causada por exportação e ativação tardia do pool reservado.",
+      "section_identifiers": [
+        "DOC-022#SEC-01",
+        "DOC-022#SEC-02",
+        "DOC-022#SEC-03",
+        "DOC-022#SEC-04",
+        "DOC-022#SEC-05",
+        "DOC-022#SEC-06",
+        "DOC-022#SEC-07",
+        "DOC-022#SEC-08",
+        "DOC-022#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "multi_context": "Combine this document with one or more listed relations."
+      }
+    },
+    {
+      "filename": "DOC-023_politica_retencao_dados.docx",
+      "title": "Política de retenção e descarte de dados",
+      "language": "pt-BR",
+      "category": "politicas_procedimentos_internos",
+      "format": "docx",
+      "version": "3.0",
+      "date": "2026-07-11",
+      "status": "current",
+      "challenges": [
+        "semantic",
+        "multi-context",
+        "cross-lingual",
+        "ambiguous"
+      ],
+      "relations": [
+        "DOC-004",
+        "DOC-009",
+        "DOC-014",
+        "DOC-018"
+      ],
+      "document_id": "DOC-023",
+      "short_description": "Política interna para logs, payloads, anexos, backups e exclusões.",
+      "section_identifiers": [
+        "DOC-023#SEC-01",
+        "DOC-023#SEC-02",
+        "DOC-023#SEC-03",
+        "DOC-023#SEC-04",
+        "DOC-023#SEC-05",
+        "DOC-023#SEC-06",
+        "DOC-023#SEC-07",
+        "DOC-023#SEC-08",
+        "DOC-023#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "cross_lingual": "Ask in another corpus language while retaining key entity meaning.",
+        "multi_context": "Combine this document with one or more listed relations."
+      }
+    },
+    {
+      "filename": "DOC-024_procedimento_gestao_mudancas.md",
+      "title": "Procedimento interno de gestão de mudanças",
+      "language": "pt-BR",
+      "category": "politicas_procedimentos_internos",
+      "format": "md",
+      "version": "2.4",
+      "date": "2026-07-06",
+      "status": "current",
+      "challenges": [
+        "semantic",
+        "exact",
+        "multi-context"
+      ],
+      "relations": [
+        "DOC-012",
+        "DOC-013",
+        "DOC-014",
+        "DOC-021",
+        "DOC-022"
+      ],
+      "document_id": "DOC-024",
+      "short_description": "Classificação, aprovação, execução e revisão de mudanças operacionais.",
+      "section_identifiers": [
+        "DOC-024#SEC-01",
+        "DOC-024#SEC-02",
+        "DOC-024#SEC-03",
+        "DOC-024#SEC-04",
+        "DOC-024#SEC-05",
+        "DOC-024#SEC-06",
+        "DOC-024#SEC-07",
+        "DOC-024#SEC-08",
+        "DOC-024#SEC-09"
+      ],
+      "candidate_query_notes": {
+        "semantic": "Use paraphrases rather than section wording.",
+        "exact": "Preserve codes, IDs, endpoints, plan names, or versions.",
+        "multi_context": "Combine this document with one or more listed relations."
+      }
+    }
+  ]
+}

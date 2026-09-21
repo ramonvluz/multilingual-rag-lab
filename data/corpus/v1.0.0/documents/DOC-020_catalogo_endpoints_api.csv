@@ -1,0 +1,6 @@
+﻿section_id,endpoint_id,method,path,api_version,required_scope,idempotent,main_codes,notes
+DOC-020#SEC-01,EP-RUN-CREATE,POST,/v3/runs,API-V3,runs:create,yes,PX-1047|AU-4012|AU-4038|RL-4290,Enviar Idempotency-Key
+DOC-020#SEC-01,EP-RUN-GET,GET,/v3/runs/{run_id},API-V3,runs:read,yes,AU-4012|AU-4038|RS-4040,RUN- identificador requerido
+DOC-020#SEC-01,EP-RUN-REPLAY,POST,/v3/runs/{run_id}/replay,API-V3,runs:replay,yes,AP-3301|AU-4038|RL-4290,Solo ejecuciones terminales elegibles
+DOC-020#SEC-01,EP-TASK-DECIDE,POST,/v3/tasks/{task_id}/decision,API-V3,tasks:decide,yes,PX-1047|TS-4092|AU-4038,TS-4092 si la tarea ya está cerrada
+DOC-020#SEC-01,EP-WEBHOOK-VERIFY,POST,/v3/webhooks/verify,API-V3,webhooks:verify,no,SG-4410|PX-1047,No reemplaza validación local de firma

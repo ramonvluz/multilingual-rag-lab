@@ -1,0 +1,9 @@
+﻿section_id,metric_code,metric,unit,Starter,Growth,Enterprise,effective_date,notes
+DOC-018#SEC-01,LIM-API-RPM,API requests per minute,requests/minute,120,600,2000,2026-07-15,Per workspace; burst bucket may absorb short spikes
+DOC-018#SEC-01,LIM-IDEMP,Idempotency window,hours,12,48,96,2026-07-15,Same key and endpoint within window
+DOC-018#SEC-01,LIM-REPLAY,Self-service replay batch,runs,25,250,2500,2026-07-15,Larger batches require Support Operations
+DOC-018#SEC-01,LIM-FLOWS,Published workflows,count,20,150,unlimited,2026-07-15,Archived workflows excluded
+DOC-018#SEC-01,LIM-CONNECT,Active connections,count,10,75,500,2026-07-15,CON- resources
+DOC-018#SEC-01,RET-META,Run metadata retention,days,90,180,365,2026-07-15,Policy reference DOC-023
+DOC-018#SEC-01,RET-PAYLOAD,Detailed payload retention,days,30,90,180,2026-07-15,May be shortened by workspace policy
+DOC-018#SEC-01,RET-VAULT,Vault Records retention,days,30,180,365,2026-07-15,Extended retention available by contract

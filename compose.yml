@@ -7,6 +7,7 @@ services:
       HF_HOME: /app/.cache/huggingface
     volumes:
       - ./runtime:/app/runtime
+      - ./data:/app/data:ro
       - hf-cache:/app/.cache/huggingface
     depends_on:
       qdrant:

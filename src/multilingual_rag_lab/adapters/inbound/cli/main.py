@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 from multilingual_rag_lab.adapters.outbound.reranking import QwenReranker
+from multilingual_rag_lab.application.corpus import IngestCorpus, validate_corpus
 from multilingual_rag_lab.bootstrap.composition import build_container, build_reindex_use_case
 from multilingual_rag_lab.evaluation import (
     ExperimentalRetriever,
@@ -18,6 +20,10 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     ingest = commands.add_parser("ingest")
     ingest.add_argument("file", type=Path)
+    ingest_corpus = commands.add_parser("ingest-corpus")
+    ingest_corpus.add_argument("corpus", type=Path)
+    validate_corpus_command = commands.add_parser("validate-corpus")
+    validate_corpus_command.add_argument("corpus", type=Path)
     commands.add_parser("reindex")
     evaluate = commands.add_parser("evaluate")
     evaluate.add_argument("dataset", type=Path)
@@ -28,6 +34,13 @@ def main() -> None:
         container = build_container()
         document, created = container.ingest.execute(args.file.name, args.file.read_bytes())
         print(json.dumps({"document_id": document.document_id, "created": created}))
+    elif args.command == "ingest-corpus":
+        container = build_container()
+        summary = IngestCorpus(container.ingest).execute(args.corpus)
+        print(json.dumps(asdict(summary)))
+    elif args.command == "validate-corpus":
+        corpus = validate_corpus(args.corpus)
+        print(json.dumps({"root": str(corpus.root), "documents": len(corpus.documents)}))
     elif args.command == "reindex":
         use_case, spec = build_reindex_use_case()
         print(
