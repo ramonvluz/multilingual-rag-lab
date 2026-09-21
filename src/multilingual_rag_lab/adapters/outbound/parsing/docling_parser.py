@@ -4,17 +4,14 @@ from multilingual_rag_lab.domain.errors import DependencyUnavailable, IngestionF
 
 
 class DoclingParser:
-    """Docling-backed parser; Markdown/HTML/CSV retain a small deterministic fallback."""
+    """Produces Docling's structured document for the Docling HybridChunker."""
 
-    def parse(self, source: Path, file_type: str) -> str:
-        if file_type in {"md", "html", "csv"}:
-            return source.read_text(encoding="utf-8", errors="replace")
+    def parse(self, source: Path, file_type: str) -> object:
         try:
             from docling.document_converter import DocumentConverter
         except ImportError as error:
             raise DependencyUnavailable("Docling is unavailable") from error
         try:
-            result = DocumentConverter().convert(source)
-            return result.document.export_to_markdown()
+            return DocumentConverter().convert(source).document
         except Exception as error:
             raise IngestionFailed("Docling could not parse the supplied document") from error

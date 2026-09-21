@@ -19,9 +19,7 @@ def reciprocal_rank(retrieved: Sequence[str], relevant: set[str]) -> float:
 
 def ndcg_at_k(retrieved: Sequence[str], relevant: set[str], k: int) -> float:
     actual = sum(
-        1 / math.log2(index + 2)
-        for index, item in enumerate(retrieved[:k])
-        if item in relevant
+        1 / math.log2(index + 2) for index, item in enumerate(retrieved[:k]) if item in relevant
     )
     ideal = sum(1 / math.log2(index + 2) for index in range(min(k, len(relevant))))
     return actual / ideal if ideal else 1.0

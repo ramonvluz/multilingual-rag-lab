@@ -13,8 +13,10 @@ from multilingual_rag_lab.application.use_cases import (
     IngestDocument,
     ListDocuments,
     QueryKnowledge,
+    ReindexCorpus,
 )
 from multilingual_rag_lab.bootstrap.settings import Settings
+from multilingual_rag_lab.domain import FileIndexManifest
 from multilingual_rag_lab.domain.models import IndexSpec
 
 
@@ -27,6 +29,8 @@ class Container:
     list_documents: ListDocuments
     delete: DeleteDocument
     query: QueryKnowledge
+    reindex: ReindexCorpus
+    index_spec: IndexSpec
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -36,21 +40,24 @@ def build_container(settings: Settings | None = None) -> Container:
         settings.embedding_model, settings.embedding_device, settings.embedding_dimension
     )
     store = QdrantKnowledgeStore(settings.qdrant_url)
+    chunker = HybridChunkerAdapter(settings.embedding_model, settings.chunk_size)
     spec = IndexSpec(
         settings.embedding_model,
         settings.embedding_dimension,
         "cosine",
         "docling-hybrid",
         HybridChunkerAdapter.version,
-        "bm25",
+        None,
     )
-    store.ensure_index(spec)
-    parser, chunker = DoclingParser(), HybridChunkerAdapter(settings.chunk_size)
+    manifest = FileIndexManifest(settings.runtime_dir / "index" / "manifest.json")
+    store.select_active(spec, manifest.load().collection_name)
+    parser = DoclingParser()
     llm = (
         GeminiAdapter(settings.gemini_api_key, settings.llm_model)
         if settings.gemini_api_key
         else None
     )
+    reindex = ReindexCorpus(repository, parser, chunker, embedder, store, manifest)
     return Container(
         settings,
         repository,
@@ -59,4 +66,27 @@ def build_container(settings: Settings | None = None) -> Container:
         ListDocuments(repository),
         DeleteDocument(repository, store),
         QueryKnowledge(embedder, store, repository, llm, settings.retrieval_top_k),
+        reindex,
+        spec,
     )
+
+
+def build_reindex_use_case(settings: Settings | None = None) -> tuple[ReindexCorpus, IndexSpec]:
+    """Composition path intentionally independent of an already-active index."""
+    settings = settings or Settings()
+    repository = FileSystemDocumentRepository(settings.runtime_dir / "documents")
+    embedder = QwenEmbedder(
+        settings.embedding_model, settings.embedding_device, settings.embedding_dimension
+    )
+    chunker = HybridChunkerAdapter(settings.embedding_model, settings.chunk_size)
+    spec = IndexSpec(
+        settings.embedding_model,
+        settings.embedding_dimension,
+        "cosine",
+        "docling-hybrid",
+        HybridChunkerAdapter.version,
+        None,
+    )
+    store = QdrantKnowledgeStore(settings.qdrant_url)
+    manifest = FileIndexManifest(settings.runtime_dir / "index" / "manifest.json")
+    return ReindexCorpus(repository, DoclingParser(), chunker, embedder, store, manifest), spec

@@ -8,6 +8,7 @@ A compact, evaluation-driven Retrieval-Augmented Generation laboratory for PT-BR
 cp .env.example .env
 uv sync --all-groups
 docker compose up -d qdrant
+uv run rag-lab reindex
 uv run uvicorn multilingual_rag_lab.adapters.inbound.api.app:app --reload
 ```
 
@@ -16,6 +17,8 @@ Use `POST /documents` to upload PDF, DOCX, HTML, Markdown, CSV, or XLSX, and `PO
 ## Design
 
 Original source files in `runtime/documents` are the source of truth. Qdrant is a reconstructable derived index named from a deterministic `IndexSpec` fingerprint. The default operational pipeline is dense retrieval. Hybrid BM25/RRF and reranking are experimental evaluation variants, not public API choices.
+
+`rag-lab reindex` is explicit: it builds and validates a candidate collection from persisted sources, atomically moves the active Qdrant alias, then records its manifest. Startup never creates or reindexes an index.
 
 The API runs without a Gemini key; generation then abstains while still returning retrieval evidence. Never expose this local demonstration service publicly without authentication, authorization, upload hardening, and operational controls.
 

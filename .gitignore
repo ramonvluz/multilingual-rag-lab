@@ -6,9 +6,8 @@ __pycache__/
 .ruff_cache/
 runtime/documents/
 runtime/index/
-data/demo/*
-!data/demo/.gitkeep
-data/evaluation/*
-!data/evaluation/.gitkeep
+# Public, curated demo and evaluation artifacts may be versioned deliberately.
+# Keep private or supplied raw corpora outside Git until explicitly curated.
+data/private/
 *.py[cod]
 .DS_Store

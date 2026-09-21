@@ -78,7 +78,7 @@ class IndexSpec:
     distance_metric: str
     chunking_strategy: str
     chunking_version: str
-    sparse_strategy: str
+    sparse_strategy: str | None = None
 
     @property
     def fingerprint(self) -> str:

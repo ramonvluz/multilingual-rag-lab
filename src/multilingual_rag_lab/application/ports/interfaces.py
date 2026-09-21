@@ -4,15 +4,15 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
 
-from multilingual_rag_lab.domain.models import Chunk, Document, IndexSpec, RetrievedChunk
+from multilingual_rag_lab.domain.models import Chunk, Document, RetrievedChunk
 
 
 class DocumentParser(Protocol):
-    def parse(self, source: Path, file_type: str) -> str: ...
+    def parse(self, source: Path, file_type: str) -> object: ...
 
 
 class Chunker(Protocol):
-    def chunk(self, document_id: str, text: str) -> list[Chunk]: ...
+    def chunk(self, document_id: str, document: object) -> list[Chunk]: ...
 
 
 class Embedder(Protocol):
@@ -22,7 +22,6 @@ class Embedder(Protocol):
 
 
 class KnowledgeStore(Protocol):
-    def ensure_index(self, spec: IndexSpec) -> None: ...
     def upsert(self, chunks: Sequence[Chunk], vectors: Sequence[Sequence[float]]) -> None: ...
     def search(self, vector: Sequence[float], limit: int) -> list[RetrievedChunk]: ...
     def delete_document(self, document_id: str) -> None: ...

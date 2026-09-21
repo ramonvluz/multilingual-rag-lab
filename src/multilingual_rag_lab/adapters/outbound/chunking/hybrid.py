@@ -1,40 +1,43 @@
 from __future__ import annotations
 
-import re
+import importlib
+from typing import Any
 
+from multilingual_rag_lab.domain.errors import DependencyUnavailable
 from multilingual_rag_lab.domain.models import Chunk
 
 
 class HybridChunkerAdapter:
-    """Structure-friendly baseline with a token-sized, deterministic text fallback.
+    """Lazy Docling HybridChunker using the Qwen tokenizer and structural metadata."""
 
-    Docling performs parsing; chunk boundaries are kept local and reproducible so the
-    application remains testable without loading a tokenizer at import time.
-    """
+    version = "docling-hybrid-v1"
 
-    version = "hybrid-v1"
-
-    def __init__(self, max_tokens: int = 512) -> None:
+    def __init__(self, tokenizer_name: str, max_tokens: int = 512) -> None:
+        self.tokenizer_name = tokenizer_name
         self.max_tokens = max_tokens
+        self._chunker: Any | None = None
 
-    def chunk(self, document_id: str, text: str) -> list[Chunk]:
-        paragraphs = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
+    def _load(self) -> Any:
+        if self._chunker is None:
+            try:
+                hybrid_chunker = importlib.import_module("docling.chunking").HybridChunker
+            except ImportError as error:
+                raise DependencyUnavailable("Docling HybridChunker is unavailable") from error
+            self._chunker = hybrid_chunker(tokenizer=self.tokenizer_name, max_tokens=self.max_tokens)
+        return self._chunker
+
+    def chunk(self, document_id: str, document: object) -> list[Chunk]:
         chunks: list[Chunk] = []
-        buffer: list[str] = []
-        section: str | None = None
-        for paragraph in paragraphs:
-            if paragraph.startswith("#"):
-                section = paragraph.lstrip("# ").strip()
-            words = paragraph.split()
-            while words:
-                room = self.max_tokens - len(buffer)
-                buffer.extend(words[:room])
-                words = words[room:]
-                if len(buffer) >= self.max_tokens:
-                    chunks.append(
-                        Chunk.create(document_id, len(chunks), " ".join(buffer), section=section)
-                    )
-                    buffer = []
-        if buffer:
-            chunks.append(Chunk.create(document_id, len(chunks), " ".join(buffer), section=section))
+        for native_chunk in self._load().chunk(dl_doc=document):
+            headings = getattr(getattr(native_chunk, "meta", None), "headings", None) or []
+            section = " > ".join(str(item) for item in headings) or None
+            chunks.append(
+                Chunk.create(
+                    document_id,
+                    len(chunks),
+                    str(native_chunk.text),
+                    section=section,
+                    metadata={"chunking": self.version},
+                )
+            )
         return chunks
