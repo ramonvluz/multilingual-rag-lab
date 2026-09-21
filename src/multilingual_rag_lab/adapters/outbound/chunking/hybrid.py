@@ -23,7 +23,9 @@ class HybridChunkerAdapter:
                 hybrid_chunker = importlib.import_module("docling.chunking").HybridChunker
             except ImportError as error:
                 raise DependencyUnavailable("Docling HybridChunker is unavailable") from error
-            self._chunker = hybrid_chunker(tokenizer=self.tokenizer_name, max_tokens=self.max_tokens)
+            self._chunker = hybrid_chunker(
+                tokenizer=self.tokenizer_name, max_tokens=self.max_tokens
+            )
         return self._chunker
 
     def chunk(self, document_id: str, document: object) -> list[Chunk]:

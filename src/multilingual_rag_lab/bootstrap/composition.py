@@ -47,7 +47,7 @@ def build_container(settings: Settings | None = None) -> Container:
         "cosine",
         "docling-hybrid",
         HybridChunkerAdapter.version,
-        None,
+        "qdrant-bm25-v1",
     )
     manifest = FileIndexManifest(settings.runtime_dir / "index" / "manifest.json")
     store.select_active(spec, manifest.load().collection_name)
@@ -85,7 +85,7 @@ def build_reindex_use_case(settings: Settings | None = None) -> tuple[ReindexCor
         "cosine",
         "docling-hybrid",
         HybridChunkerAdapter.version,
-        None,
+        "qdrant-bm25-v1",
     )
     store = QdrantKnowledgeStore(settings.qdrant_url)
     manifest = FileIndexManifest(settings.runtime_dir / "index" / "manifest.json")

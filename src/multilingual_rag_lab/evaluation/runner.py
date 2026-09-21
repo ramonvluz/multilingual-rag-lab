@@ -7,8 +7,6 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Protocol, cast
 
-from rank_bm25 import BM25Okapi
-
 from multilingual_rag_lab.domain.models import RetrievedChunk
 from multilingual_rag_lab.evaluation.metrics import ndcg_at_k, recall_at_k, reciprocal_rank
 from multilingual_rag_lab.evaluation.reporting import RetrievalReport
@@ -23,12 +21,8 @@ class RetrievalBackend(Protocol):
     ) -> list[RetrievedChunk]: ...
 
 
-def _terms(text: str) -> list[str]:
-    return [term for term in text.casefold().split() if term]
-
-
 class ExperimentalRetriever:
-    """Dense Qdrant plus a deterministic BM25-like lexical candidate ranking for evaluation."""
+    """Experimental Qdrant dense/sparse retrieval, with optional Qwen reranking."""
 
     def __init__(self, embedder: Any, store: Any, reranker: Any | None = None) -> None:
         self.embedder, self.store, self.reranker = embedder, store, reranker
@@ -37,14 +31,7 @@ class ExperimentalRetriever:
         return cast(list[RetrievedChunk], self.store.search(self.embedder.embed([query])[0], limit))
 
     def sparse(self, query: str, limit: int) -> list[RetrievedChunk]:
-        candidates = self.store.all_chunks()
-        if not candidates:
-            return []
-        scores = BM25Okapi([_terms(chunk.text) for chunk in candidates]).get_scores(_terms(query))
-        ranked = sorted(
-            zip(candidates, scores, strict=True), key=lambda pair: (-float(pair[1]), pair[0].chunk_id)
-        )
-        return [RetrievedChunk(chunk, float(score)) for chunk, score in ranked if score > 0][:limit]
+        return cast(list[RetrievedChunk], self.store.sparse_search(query, limit))
 
     def rerank(
         self, query: str, candidates: list[RetrievedChunk], limit: int

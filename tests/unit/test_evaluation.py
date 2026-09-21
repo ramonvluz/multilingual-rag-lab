@@ -18,15 +18,26 @@ def test_retrieval_metrics() -> None:
 class Backend:
     def dense(self, query: str, limit: int) -> list[RetrievedChunk]:
         return [RetrievedChunk(Chunk.create("doc-1", 0, "answer"), 1.0)]
+
     def sparse(self, query: str, limit: int) -> list[RetrievedChunk]:
         return self.dense(query, limit)
-    def rerank(self, query: str, candidates: list[RetrievedChunk], limit: int) -> list[RetrievedChunk]:
+
+    def rerank(
+        self, query: str, candidates: list[RetrievedChunk], limit: int
+    ) -> list[RetrievedChunk]:
         return candidates[:limit]
 
 
 def test_runner_reports_aggregate_and_query_type() -> None:
     report = run_retrieval_evaluation(
-        [{"query_id": "q1", "query": "answer", "query_type": "semantic", "relevant_documents": ["doc-1"]}],
+        [
+            {
+                "query_id": "q1",
+                "query": "answer",
+                "query_type": "semantic",
+                "relevant_documents": ["doc-1"],
+            }
+        ],
         Backend(),
         "hybrid_rerank",
         1,

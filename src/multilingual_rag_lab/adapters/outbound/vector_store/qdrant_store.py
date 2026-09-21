@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
@@ -15,12 +15,19 @@ from multilingual_rag_lab.domain.models import Chunk, IndexSpec, RetrievedChunk
 class QdrantKnowledgeStore:
     """Dense Qdrant index addressed through a stable alias, never auto-created."""
 
-    def __init__(self, url: str, collection_prefix: str = "rag") -> None:
+    def __init__(
+        self,
+        url: str,
+        collection_prefix: str = "rag",
+        sparse_encoder: Callable[[Sequence[str]], list[Any]] | None = None,
+    ) -> None:
         self.url = url
         self.collection_prefix = collection_prefix
         self.alias_name = f"{collection_prefix}_active"
         self.collection_name: str | None = None
         self._client: Any | None = None
+        self._sparse_encoder = sparse_encoder
+        self._sparse_model: Any | None = None
 
     def _get_client(self) -> Any:
         if self._client is None:
@@ -39,20 +46,30 @@ class QdrantKnowledgeStore:
         return f"{self.collection_prefix}_{spec.fingerprint}"
 
     def create_collection(self, spec: IndexSpec) -> str:
-        from qdrant_client.models import Distance, VectorParams
+        from qdrant_client.models import (
+            Distance,
+            SparseIndexParams,
+            SparseVectorParams,
+            VectorParams,
+        )
 
         name = self.collection_for(spec)
         client = self._get_client()
         if client.collection_exists(name):
             info = client.get_collection(name)
-            if info.config.params.vectors.size != spec.embedding_dimension:
+            dense = info.config.params.vectors["dense"]
+            has_bm25 = "bm25" in (info.config.params.sparse_vectors or {})
+            if dense.size != spec.embedding_dimension or not has_bm25:
                 raise IndexIncompatible("Existing collection does not match IndexSpec")
         else:
             client.create_collection(
                 name,
-                vectors_config=VectorParams(
-                    size=spec.embedding_dimension, distance=Distance.COSINE
-                ),
+                vectors_config={
+                    "dense": VectorParams(size=spec.embedding_dimension, distance=Distance.COSINE)
+                },
+                sparse_vectors_config={
+                    "bm25": SparseVectorParams(index=SparseIndexParams(on_disk=False))
+                },
             )
         return name
 
@@ -94,13 +111,31 @@ class QdrantKnowledgeStore:
             raise IndexNotReady("No active index; run `rag-lab reindex`")
         return selected
 
+    def _sparse_vectors(self, texts: Sequence[str]) -> list[Any]:
+        if self._sparse_encoder is not None:
+            return self._sparse_encoder(texts)
+        if self._sparse_model is None:
+            try:
+                from fastembed import SparseTextEmbedding
+            except ImportError as error:
+                raise DependencyUnavailable("fastembed is unavailable") from error
+            self._sparse_model = SparseTextEmbedding(model_name="Qdrant/bm25")
+        from qdrant_client.models import SparseVector
+
+        return [
+            SparseVector(indices=list(vector.indices), values=list(vector.values))
+            for vector in self._sparse_model.embed(list(texts))
+        ]
+
     def _points(self, chunks: Sequence[Chunk], vectors: Sequence[Sequence[float]]) -> list[Any]:
         from qdrant_client.models import PointStruct
+
+        sparse_vectors = self._sparse_vectors([chunk.text for chunk in chunks])
 
         return [
             PointStruct(
                 id=str(uuid5(NAMESPACE_URL, chunk.chunk_id)),
-                vector=list(vector),
+                vector={"dense": list(vector), "bm25": sparse_vector},
                 payload={
                     "chunk_id": chunk.chunk_id,
                     "document_id": chunk.document_id,
@@ -111,7 +146,7 @@ class QdrantKnowledgeStore:
                     "metadata": chunk.metadata,
                 },
             )
-            for chunk, vector in zip(chunks, vectors, strict=True)
+            for chunk, vector, sparse_vector in zip(chunks, vectors, sparse_vectors, strict=True)
         ]
 
     def upsert(self, chunks: Sequence[Chunk], vectors: Sequence[Sequence[float]]) -> None:
@@ -130,21 +165,31 @@ class QdrantKnowledgeStore:
     def search(self, vector: Sequence[float], limit: int) -> list[RetrievedChunk]:
         response = (
             self._get_client()
-            .query_points(self._collection(), query=list(vector), limit=limit, with_payload=True)
+            .query_points(
+                self._collection(),
+                query=list(vector),
+                using="dense",
+                limit=limit,
+                with_payload=True,
+            )
             .points
         )
         return [self._to_retrieved(point) for point in response]
 
-    def all_chunks(self) -> list[Chunk]:
-        points, offset = [], None
-        while True:
-            batch, offset = self._get_client().scroll(
-                self._collection(), offset=offset, limit=256, with_payload=True, with_vectors=False
+    def sparse_search(self, query: str, limit: int) -> list[RetrievedChunk]:
+        sparse_query = self._sparse_vectors([query])[0]
+        response = (
+            self._get_client()
+            .query_points(
+                self._collection(),
+                query=sparse_query,
+                using="bm25",
+                limit=limit,
+                with_payload=True,
             )
-            points.extend(batch)
-            if offset is None:
-                break
-        return [self._to_retrieved(point).chunk for point in points]
+            .points
+        )
+        return [self._to_retrieved(point) for point in response]
 
     @staticmethod
     def _to_retrieved(point: Any) -> RetrievedChunk:
