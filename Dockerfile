@@ -3,7 +3,11 @@ FROM python:3.12-slim
 COPY --from=uv /uv /uvx /bin/
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 HF_HOME=/app/.cache/huggingface PATH=/app/.venv/bin:$PATH
 WORKDIR /app
-RUN useradd --create-home --uid 10001 appuser && chown appuser:appuser /app
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y libgl1 libglib2.0-0 libxcb1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 appuser \
+    && chown appuser:appuser /app
 COPY --chown=appuser:appuser pyproject.toml uv.lock README.md ./
 COPY --chown=appuser:appuser src ./src
 USER appuser
