@@ -1,0 +1,1 @@
+"""External implementation adapters."""

@@ -1,0 +1,21 @@
+services:
+  app:
+    build: .
+    ports: ["8000:8000"]
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      HF_HOME: /app/.cache/huggingface
+    volumes:
+      - ./runtime:/app/runtime
+      - hf-cache:/app/.cache/huggingface
+    depends_on:
+      qdrant:
+        condition: service_started
+  qdrant:
+    image: qdrant/qdrant:v1.12.5
+    volumes:
+      - qdrant-data:/qdrant/storage
+    ports: ["6333:6333"]
+volumes:
+  qdrant-data:
+  hf-cache:
