@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from multilingual_rag_lab.domain.errors import (
 from multilingual_rag_lab.domain.models import Document
 
 SUPPORTED_TYPES = {"pdf", "docx", "html", "md", "csv", "xlsx"}
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -52,6 +54,7 @@ class IngestDocument:
             self.repository.delete(document.document_id)
             if isinstance(error, IngestionFailed):
                 raise
+            logger.exception("ingestion_failed", extra={"document_id": document.document_id})
             raise IngestionFailed("Document ingestion failed") from error
         return document, True
 

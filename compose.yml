@@ -10,16 +10,11 @@ services:
       - hf-cache:/app/.cache/huggingface
     depends_on:
       qdrant:
-        condition: service_healthy
+        condition: service_started
   qdrant:
-    image: qdrant/qdrant:v1.12.5
+    image: qdrant/qdrant:v1.19.1
     volumes:
       - qdrant-data:/qdrant/storage
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://localhost:6333/healthz >/dev/null 2>&1"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
 volumes:
   qdrant-data:
   hf-cache:
