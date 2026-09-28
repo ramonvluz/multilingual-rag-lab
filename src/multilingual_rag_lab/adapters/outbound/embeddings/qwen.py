@@ -7,9 +7,12 @@ from multilingual_rag_lab.domain.errors import DependencyUnavailable
 
 
 class QwenEmbedder:
-    def __init__(self, model_name: str, device: str, expected_dimension: int) -> None:
+    def __init__(
+        self, model_name: str, device: str, expected_dimension: int, revision: str | None = None
+    ) -> None:
         self.model_name, self.device, self._dimension = model_name, device, expected_dimension
         self._model: object | None = None
+        self.revision = revision
 
     @property
     def dimension(self) -> int:
@@ -22,7 +25,7 @@ class QwenEmbedder:
             except ImportError as error:
                 raise DependencyUnavailable("sentence-transformers is unavailable") from error
             self._model = SentenceTransformer(
-                self.model_name, device=self.device, trust_remote_code=True
+                self.model_name, device=self.device, revision=self.revision, trust_remote_code=False
             )
         return self._model
 

@@ -42,6 +42,15 @@ class Store:
     def create_collection(self, spec: IndexSpec) -> str:
         return "candidate"
 
+    def active_collection(self):
+        return self.active
+
+    def remove_candidate(self, name):
+        assert name != self.active
+
+    def validate_contents(self, spec, collection, documents, expected):
+        assert self.chunks == len(expected)
+
     def upsert_into(self, collection: str, chunks: list[Chunk], vectors: list[list[float]]) -> None:
         if self.fail:
             raise RuntimeError("simulated indexing failure")

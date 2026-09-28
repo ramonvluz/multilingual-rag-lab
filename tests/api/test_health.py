@@ -1,10 +1,18 @@
+import asyncio
+
+import pytest
 from fastapi.testclient import TestClient
 
 from multilingual_rag_lab.adapters.inbound.api import app as api_module
+from multilingual_rag_lab.bootstrap.settings import Settings
 from multilingual_rag_lab.domain.models import Document, QueryResult
 
 
-def test_liveness_is_independent_from_qdrant_and_readiness_is_not() -> None:
+def test_liveness_is_independent_from_qdrant_and_readiness_is_not(monkeypatch) -> None:
+    def unavailable():
+        raise RuntimeError("isolated unavailable dependency")
+
+    monkeypatch.setattr(api_module, "build_container", unavailable)
     with TestClient(api_module.create_app()) as client:
         assert client.get("/health/live").json() == {"status": "live"}
         ready = client.get("/health/ready")
@@ -38,6 +46,7 @@ class Query:
 
 
 class Container:
+    settings = Settings(upload_max_size=100)
     store = Store()
     ingest = Ingest()
     list_documents = Documents()
@@ -55,3 +64,21 @@ def test_public_api_contracts(monkeypatch) -> None:
         assert client.get("/documents").json() == []
         assert client.post("/query", json={"question": "Pergunta"}).json()["answer"] == "evidence"
         assert client.delete("/documents/id").status_code == 204
+
+
+@pytest.mark.parametrize("size,status", [(99, 201), (100, 201), (101, 413)])
+def test_upload_limit_and_threadpool(monkeypatch, size, status):
+    class ThreadIngest:
+        def execute(self, filename, content):
+            with pytest.raises(RuntimeError):
+                asyncio.get_running_loop()
+            return Document.from_content(content, filename, "md"), True
+
+    value = Container()
+    value.ingest = ThreadIngest()
+    monkeypatch.setattr(api_module, "build_container", lambda: value)
+    with TestClient(api_module.create_app()) as client:
+        assert (
+            client.post("/documents", files={"file": ("notes.md", b"x" * size)}).status_code
+            == status
+        )

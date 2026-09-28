@@ -10,6 +10,7 @@ from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from multilingual_rag_lab.bootstrap.composition import Container, build_container
 from multilingual_rag_lab.domain.errors import (
@@ -79,7 +80,13 @@ def create_app() -> FastAPI:
     @app.post("/documents", status_code=201)
     async def ingest(file: UploadFile = File(...)) -> dict[str, Any]:  # noqa: B008
         try:
-            document, created = container().ingest.execute(file.filename or "", await file.read())
+            value = container()
+            content = await file.read(value.settings.upload_max_size + 1)
+            if len(content) > value.settings.upload_max_size:
+                raise HTTPException(status_code=413, detail="Upload exceeds configured limit")
+            document, created = await run_in_threadpool(
+                value.ingest.execute, file.filename or "", content
+            )
             return {"document": _document_response(document), "created": created}
         except ApplicationError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error

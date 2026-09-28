@@ -7,10 +7,13 @@ RUN apt-get update \
     && apt-get install --no-install-recommends -y libgl1 libglib2.0-0 libxcb1 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 10001 appuser \
+    && mkdir -p /app/runtime /app/.cache/huggingface/fastembed \
+    && chown -R appuser:appuser /app/runtime /app/.cache \
     && chown appuser:appuser /app
 COPY --chown=appuser:appuser pyproject.toml uv.lock README.md ./
-COPY --chown=appuser:appuser src ./src
 USER appuser
+RUN uv sync --locked --no-dev --no-install-project
+COPY --chown=appuser:appuser src ./src
 RUN uv sync --locked --no-dev
 EXPOSE 8000
 CMD ["uvicorn", "multilingual_rag_lab.adapters.inbound.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

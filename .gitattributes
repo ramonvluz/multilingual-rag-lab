@@ -1,3 +1,4 @@
 # Preserve supplied Golden V1 artifacts byte-for-byte across platforms.
 evaluation/datasets/* -text
 evaluation/reports/golden_v1_*.md -text
+data/corpus/v1.0.0/** -text

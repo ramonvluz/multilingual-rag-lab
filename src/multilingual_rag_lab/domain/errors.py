@@ -6,6 +6,10 @@ class DocumentNotFound(ApplicationError):
     pass
 
 
+class DocumentCorrupt(ApplicationError):
+    pass
+
+
 class UnsupportedDocument(ApplicationError):
     pass
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import Any
 
@@ -22,13 +24,21 @@ class ReindexCorpus:
     embedder: Embedder
     store: Any
     manifest: FileIndexManifest
+    lock: Callable[[], AbstractContextManager[None]] = nullcontext
 
     def execute(self, spec: IndexSpec) -> int:
-        """Build a candidate collection and atomically promote it only after validation."""
+        with self.lock():
+            return self._execute(spec)
+
+    def _execute(self, spec: IndexSpec) -> int:
+        previous = self.store.active_collection()
         collection = self.store.create_collection(spec)
         indexed = 0
+        expected: set[str] = set()
+        promotion_attempted = False
         try:
-            for document in self.repository.list():
+            documents = self.repository.list()
+            for document in documents:
                 parsed = self.parser.parse(
                     self.repository.source_path(document), document.file_type
                 )
@@ -39,11 +49,23 @@ class ReindexCorpus:
                     collection, chunks, self.embedder.embed([item.text for item in chunks])
                 )
                 indexed += len(chunks)
-            if self.store.count(collection) != indexed:
-                raise IngestionFailed("Candidate collection validation failed")
+                expected.update(chunk.chunk_id for chunk in chunks)
+            self.store.validate_contents(
+                spec, collection, {d.document_id for d in documents}, expected
+            )
+            promotion_attempted = True
             self.store.promote(collection)
             self.manifest.save(IndexManifest(spec, collection))
             return indexed
-        except Exception:
-            # The active alias and previous manifest are deliberately untouched.
+        except Exception as error:
+            try:
+                if promotion_attempted:
+                    self.store.promote(previous)
+                self.store.remove_candidate(collection)
+            except Exception as recovery_error:
+                raise IngestionFailed(
+                    f"Reindex failed; recovery/cleanup failed for candidate {collection}; previous={previous}. Reconcile alias/manifest before retry"
+                ) from recovery_error
+            if isinstance(error, IngestionFailed):
+                raise
             raise

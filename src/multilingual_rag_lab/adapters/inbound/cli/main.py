@@ -4,12 +4,14 @@ import argparse
 import hashlib
 import json
 import platform
+from contextlib import nullcontext
 from dataclasses import asdict
 from importlib.metadata import version
 from pathlib import Path
 
 from multilingual_rag_lab.adapters.outbound.reranking import QwenReranker
 from multilingual_rag_lab.adapters.outbound.storage import FileSystemDocumentRepository
+from multilingual_rag_lab.adapters.outbound.storage.locking import mutation_lock
 from multilingual_rag_lab.application.corpus import IngestCorpus, validate_corpus
 from multilingual_rag_lab.bootstrap.composition import build_container, build_reindex_use_case
 from multilingual_rag_lab.bootstrap.settings import Settings
@@ -20,6 +22,7 @@ from multilingual_rag_lab.evaluation import (
     run_retrieval_evaluation,
 )
 from multilingual_rag_lab.evaluation.document_ids import resolve_document_ids
+from multilingual_rag_lab.evaluation.preflight import preflight
 
 
 def main() -> None:
@@ -49,6 +52,11 @@ def main() -> None:
         action="store_true",
         help="Validate Golden V1 and runtime mapping; no models, queries or report",
     )
+    evaluate.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help="Validate sources plus Qdrant snapshot; no queries, models or report",
+    )
     args = parser.parse_args()
     if args.command == "ingest":
         container = build_container()
@@ -58,6 +66,8 @@ def main() -> None:
         container = build_container()
         summary = IngestCorpus(container.ingest).execute(args.corpus)
         print(json.dumps(asdict(summary)))
+        if summary.failures:
+            raise SystemExit(1)
     elif args.command == "validate-corpus":
         corpus = validate_corpus(args.corpus)
         print(json.dumps({"root": str(corpus.root), "documents": len(corpus.documents)}))
@@ -71,78 +81,93 @@ def main() -> None:
         settings = Settings()
         if not (settings.runtime_dir / "documents").is_dir():
             parser.error("Operational documents directory is missing")
-        repository = FileSystemDocumentRepository(settings.runtime_dir / "documents")
-        document_ids = resolve_document_ids(args.corpus, repository)
-        if args.validate_only:
-            print(
-                json.dumps(
-                    {
-                        "queries": len(dataset),
-                        "answerable": sum(row["answerability"] == "answerable" for row in dataset),
-                        "unanswerable": sum(
-                            row["answerability"] == "unanswerable" for row in dataset
-                        ),
-                        "mapped_documents": len(document_ids),
-                    }
+        with nullcontext() if args.validate_only else mutation_lock(settings.runtime_dir):
+            repository = FileSystemDocumentRepository(settings.runtime_dir / "documents")
+            document_ids = resolve_document_ids(args.corpus, repository)
+            if args.validate_only:
+                print(
+                    json.dumps(
+                        {
+                            "queries": len(dataset),
+                            "answerable": sum(row["answerability"] == "answerable" for row in dataset),
+                            "unanswerable": sum(
+                                row["answerability"] == "unanswerable" for row in dataset
+                            ),
+                            "mapped_documents": len(document_ids),
+                        }
+                    )
                 )
-            )
-            return
-        if args.top_k < 10 or args.candidate_pool < args.top_k:
-            parser.error("V1 requires --top-k >= 10 and --candidate-pool >= --top-k")
-        if args.output.exists():
-            parser.error("Output already exists; choose a new result path")
-        container = build_container(settings)
-        index_manifest = FileIndexManifest(settings.runtime_dir / "index" / "manifest.json").load()
-        if index_manifest.spec != container.index_spec:
-            parser.error("Active IndexSpec differs from evaluation configuration")
-        client = container.store._get_client()
-        active = {alias.alias_name: alias.collection_name for alias in client.get_aliases().aliases}
-        if active.get(container.store.alias_name) != index_manifest.collection_name:
-            parser.error("Active Qdrant alias differs from the persisted manifest")
-        manifest_path = args.corpus / "manifest.json"
-        corpus_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        provenance = {
-            "dataset": str(args.dataset),
-            "dataset_version": "golden_v1",
-            "dataset_sha256": hashlib.sha256(args.dataset.read_bytes()).hexdigest(),
-            "corpus_version": corpus_manifest["corpus_version"],
-            "corpus_manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
-            "collection": index_manifest.collection_name,
-            "alias": container.store.alias_name,
-            "indexed_points": container.store.count(index_manifest.collection_name),
-            "device": settings.embedding_device,
-            "python": platform.python_version(),
-            "platform": platform.platform(),
-            "packages": {
-                name: version(name)
-                for name in (
-                    "multilingual-rag-lab",
-                    "qdrant-client",
-                    "fastembed",
-                    "sentence-transformers",
-                    "torch",
-                    "transformers",
+                return
+            if args.top_k < 10 or args.candidate_pool < args.top_k:
+                parser.error("V1 requires --top-k >= 10 and --candidate-pool >= --top-k")
+            if args.output.exists() and not args.preflight_only:
+                parser.error("Output already exists; choose a new result path")
+            container = build_container(settings)
+            index_manifest = FileIndexManifest(settings.runtime_dir / "index" / "manifest.json").load()
+            counts = preflight(container.store, index_manifest, container.index_spec, document_ids)
+            if args.preflight_only:
+                print(
+                    json.dumps(
+                        {
+                            "queries": len(dataset),
+                            "documents": len(counts),
+                            "points": sum(counts.values()),
+                            "physical_collection": container.store.collection_name,
+                            "fingerprint": container.index_spec.fingerprint,
+                        }
+                    )
                 )
-            },
-        }
-        reports = {}
-        for variant in ("dense", "hybrid", "hybrid_rerank"):
-            reranker = (
-                QwenReranker(device=container.settings.embedding_device)
-                if variant == "hybrid_rerank"
-                else None
-            )
-            backend = ExperimentalRetriever(container.query.embedder, container.store, reranker)
-            reports[variant] = run_retrieval_evaluation(
-                dataset,
-                backend,
-                variant,
-                document_ids,
-                index_manifest.spec,
-                max_document_k=args.top_k,
-                candidate_pool=args.candidate_pool,
-                provenance=provenance,
-            )
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(reports, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(json.dumps({"report": str(args.output), "variants": list(reports)}))
+                return
+            manifest_path = args.corpus / "manifest.json"
+            corpus_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            provenance = {
+                "dataset": str(args.dataset),
+                "dataset_version": "golden_v1",
+                "dataset_sha256": hashlib.sha256(args.dataset.read_bytes()).hexdigest(),
+                "corpus_version": corpus_manifest["corpus_version"],
+                "corpus_manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                "collection": index_manifest.collection_name,
+                "alias": container.store.alias_name,
+                "indexed_points": container.store.count(index_manifest.collection_name),
+                "indexed_documents": counts,
+                "collection_policy": "physical collection frozen after preflight; no concurrent mutations permitted",
+                "embedding_revision": container.settings.embedding_revision,
+                "reranker_revision": QwenReranker.revision,
+                "query_prompt_policy": "baseline encode() without query prompt",
+                "device": settings.embedding_device,
+                "python": platform.python_version(),
+                "platform": platform.platform(),
+                "packages": {
+                    name: version(name)
+                    for name in (
+                        "multilingual-rag-lab",
+                        "qdrant-client",
+                        "fastembed",
+                        "sentence-transformers",
+                        "torch",
+                        "transformers",
+                    )
+                },
+            }
+            reports = {}
+            for variant in ("dense", "hybrid", "hybrid_rerank"):
+                reranker = (
+                    QwenReranker(device=container.settings.embedding_device)
+                    if variant == "hybrid_rerank"
+                    else None
+                )
+                backend = ExperimentalRetriever(container.query.embedder, container.store, reranker)
+                reports[variant] = run_retrieval_evaluation(
+                    dataset,
+                    backend,
+                    variant,
+                    document_ids,
+                    index_manifest.spec,
+                    max_document_k=args.top_k,
+                    candidate_pool=args.candidate_pool,
+                    provenance=provenance,
+                )
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            with args.output.open("x", encoding="utf-8") as stream:
+                json.dump(reports, stream, ensure_ascii=False, indent=2)
+            print(json.dumps({"report": str(args.output), "variants": list(reports)}))

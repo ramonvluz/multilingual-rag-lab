@@ -6,7 +6,10 @@ A compact, evaluation-driven Retrieval-Augmented Generation laboratory for PT-BR
 
 ```bash
 cp .env.example .env
-uv sync --all-groups
+uv sync --locked --all-groups
+# On native Linux, prepare ownership of the runtime mount once (no recursive chown):
+# docker compose build app
+# docker compose run --rm --no-deps --user 0 app chown 10001:10001 /app/runtime
 docker compose up -d
 docker compose exec app rag-lab reindex
 docker compose restart app
@@ -17,9 +20,9 @@ Use `POST /documents` to upload PDF, DOCX, HTML, Markdown, CSV, or XLSX, and `PO
 
 ## Design
 
-Original source files in `runtime/documents` are the source of truth. Qdrant is a reconstructable derived index named from a deterministic `IndexSpec` fingerprint. The default operational pipeline is dense retrieval. Hybrid BM25/RRF and reranking are experimental evaluation variants, not public API choices.
+Original source files in `runtime/documents` are the source of truth. Qdrant is a reconstructable derived index, with unique physical generations named `rag_<IndexSpec fingerprint>_<uuid>`. The default operational pipeline is dense retrieval. Hybrid BM25/RRF and reranking are experimental evaluation variants, not public API choices.
 
-`rag-lab reindex` is explicit: it builds and validates a candidate collection from persisted sources, atomically moves the active Qdrant alias, then records its manifest. Startup never creates or reindexes an index.
+`rag-lab reindex` is explicit: under a local mutation lock it builds a new empty candidate collection from persisted sources, validates every point, moves the active Qdrant alias, then atomically writes its manifest. A manifest write failure rolls back the alias, including the first-index case. Failed candidates are cleaned only when safely inactive; cleanup/rollback errors are explicit. Previous valid collections are retained for rollback. Startup never creates or reindexes an index. See architecture notes for the process-crash recovery boundary.
 
 ## Official corpus
 
@@ -53,8 +56,12 @@ Validate dataset and all 24 mappings without querying Qdrant or loading models:
 uv run rag-lab evaluate evaluation/datasets/golden_v1.jsonl --validate-only
 ```
 
+To also validate Qdrant without running retrieval or loading models, use the same
+command with `--preflight-only` instead (inside Compose, mount `./evaluation:/app/evaluation`
+as shown below). This prints only integrity counts and the physical snapshot name.
+
 For a **future, explicitly authorized benchmark**, use the current app source and
-the existing Compose network/cache/runtime (no reindex needed):
+the existing Compose network/cache/runtime, after the explicit migration to the corrected BM25 v2 IndexSpec:
 
 ```bash
 docker compose build app
@@ -86,8 +93,58 @@ model names, IndexSpec/fingerprint, collection/alias, document mapping and pool 
 Use a new output filename for every run; existing reports are not overwritten.
 `evaluation/results/` is versionable and currently contains no benchmark results.
 
+Preflight checks schema (dense 1024/cosine, BM25 IDF), every official operational SHA,
+unknown documents, chunk identity/sequence, materialized vectors and total count.
+All A/B/C searches then use that exact physical collection, not the mutable alias.
+Official evaluation holds the local runtime mutation lock for the entire preflight and A/B/C run, so ingest, delete and reindex using the same runtime are rejected while it is running. This does not prevent out-of-band writes made directly to Qdrant or through another coordination mechanism. Candidate JSON uses
+`score_type` and `ranking_score`: dense / RRF / final reranker respectively.
+
+The lexical baseline is FastEmbed `Qdrant/bm25`, document `embed()` and query
+`query_embed()`, with Qdrant `Modifier.IDF`. Stemming **and stopwords are disabled**
+for PT-BR/EN/ES; k=1.2, b=0.75, avg_len=256 and token_max_length=40 are explicit.
+Embedding queries retain the approved `encode()` baseline without a query prompt.
+Qwen embedding/tokenizer and reranker revisions are pinned and reported. Warm-up
+loads the entire selected path; this small case study does not eliminate OS/cache/
+thermal noise or claim statistical significance from a single run.
+
+## Configuration and recovery
+
+Compose explicitly forwards the documented model, chunk, upload and log settings;
+its Qdrant URL stays `http://qdrant:6333`. `.env` is optional and never versioned.
+For local Python commands, configure a reachable Qdrant URL: Compose does not publish
+6333. `GEMINI_API_KEY` may be forwarded but is not required. **Gemini live remains
+pending citation/abstention contract corrections; do not enable generation yet.**
+
+The image runs as UID 10001. Its HF and FastEmbed cache directories are pre-created
+with that ownership; FastEmbed persists under the same cache volume. Bind-mounted
+runtime directories on native Linux need writable ownership (see quick start).
+Qdrant has a real readiness healthcheck; app startup waits for it. App readiness
+checks manifest/configuration/alias/schema without loading models. Before the first
+explicit empty reindex, app readiness is intentionally 503; restart after that step.
+
+Ingest retains sources on failure so retry can repair absent/partial indexing.
+Completed receipts are checked against exact indexed chunk IDs. Delete is retry-safe
+when vectors were removed but filesystem deletion failed. Batch summaries include
+all failures and return a nonzero exit code on partial failure. Mutations on the same
+runtime are serialized locally; a concurrent command fails clearly. Local lock files
+are persistent coordination files, not stale-lock markers to delete manually.
+
+Corpus files are marked `-text` in `.gitattributes`, preserving approved bytes on all
+platforms. A regression test verifies the aggregate corpus SHA-256. Golden bytes
+remain separately protected. No section-level changes are part of V1.
+
 ## Development
 
-`make lint`, `make typecheck`, `make test`, `make integration`, `make build`, `make up`, `make down`, and `make smoke` use the same workflow as CI. A real Gemini request is intentionally excluded from standard tests.
+`make setup/lint/typecheck/test` runs locked setup and local quality checks. `make test`
+runs the whole lightweight suite; `make integration` uses Qdrant local mode unless
+`QDRANT_TEST_URL` points to a disposable test server. CI provides Qdrant Server 1.19.1,
+runs the full suite and Docker build, but does not download Qwen/Docling models.
+`RUN_BM25_REAL=1` opts into the small real FastEmbed test. `make smoke` checks lazy
+imports, not container end-to-end behavior. `make build/up/down` manages Compose
+without deleting volumes. Ingest/reindex targets run inside Compose; `FILE` is a
+container path. `validate-corpus` is local and read-only. Make requires GNU Make;
+on Windows use the equivalent `uv`/`docker compose` commands directly.
+`make benchmark` is guarded by `CONFIRM_BENCHMARK=yes`; `OUTPUT` is optional and
+defaults to the CLI output path when omitted. Use it only after separate benchmark authorization.
 
 See [architecture](docs/architecture.md) and [ADRs](docs/decisions/).

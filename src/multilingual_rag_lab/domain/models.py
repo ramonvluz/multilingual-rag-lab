@@ -72,6 +72,18 @@ class QueryResult:
 
 
 @dataclass(frozen=True, slots=True)
+class SparseConfig:
+    model: str = "Qdrant/bm25"
+    modifier: str = "idf"
+    k: float = 1.2
+    b: float = 0.75
+    avg_len: float = 256.0
+    language: str = "english"
+    disable_stemmer: bool = True  # Also disables language-specific stopwords in FastEmbed.
+    token_max_length: int = 40
+
+
+@dataclass(frozen=True, slots=True)
 class IndexSpec:
     embedding_model: str
     embedding_dimension: int
@@ -79,6 +91,11 @@ class IndexSpec:
     chunking_strategy: str
     chunking_version: str
     sparse_strategy: str | None = None
+    chunk_size: int = 512
+    tokenizer: str | None = None
+    embedding_revision: str | None = None
+    tokenizer_revision: str | None = None
+    sparse_config: SparseConfig | None = None
 
     @property
     def fingerprint(self) -> str:

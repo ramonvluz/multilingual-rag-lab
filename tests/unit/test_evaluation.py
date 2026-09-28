@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from multilingual_rag_lab.adapters.outbound.storage import FileSystemDocumentRepository
+from multilingual_rag_lab.domain.errors import DocumentCorrupt
 from multilingual_rag_lab.domain.models import Chunk, Document, IndexSpec, RetrievedChunk
 from multilingual_rag_lab.evaluation.dataset import (
     GOLDEN_V1_DISTRIBUTION,
@@ -154,11 +155,16 @@ def test_variants_deduplicate_after_full_candidate_pool_and_warmup(monkeypatch, 
         )
         fused = [candidates[key] for key in ranks]
         if variant == "hybrid_rerank":
-            assert backend.last_reranked == fused
+            assert [i.chunk for i in backend.last_reranked] == [i.chunk for i in fused]
             assert backend.calls[-1][2] == 14  # rerank all candidates, not top-10 chunks
             fused.reverse()
         expected = document_ranking(fused, MAPPING)
     result = report["queries"][0]
+    assert (
+        result["retrieved_chunks"][0]["score_type"]
+        == {"dense": "dense", "hybrid": "rrf", "hybrid_rerank": "reranker"}[variant]
+    )
+    assert "ranking_score" in result["retrieved_chunks"][0]
     assert result["retrieved_documents"] == expected
     assert result["metrics"]["recall_at_3"] == 1
     assert result["metrics"]["recall_at_1"] == 0.5
@@ -271,7 +277,7 @@ def test_mapping_fails_closed(mapped_corpus, failure):
             corpus / "documents" / "DOC-999_fixture.md"
         )
         (corpus / "manifest.json").write_text(json.dumps(manifest))
-    with pytest.raises(ValueError):
+    with pytest.raises((ValueError, DocumentCorrupt)):
         resolve_document_ids(corpus, repository)
 
 
@@ -291,6 +297,7 @@ def test_validate_only_cli_never_builds_retrieval_backend(
 
     monkeypatch.setattr(cli, "build_container", forbidden)
     monkeypatch.setattr(cli, "run_retrieval_evaluation", forbidden)
+    monkeypatch.setattr(cli, "mutation_lock", forbidden)
     output = tmp_path / "must-not-exist.json"
     monkeypatch.setattr(
         sys,
@@ -314,3 +321,144 @@ def test_validate_only_cli_never_builds_retrieval_backend(
         "mapped_documents": 24,
     }
     assert not output.exists()
+
+
+def test_makefile_benchmark_output_is_optional_and_guarded():
+    recipe = (ROOT / "Makefile").read_text().split("benchmark:\n", 1)[1]
+    assert '"$(CONFIRM_BENCHMARK)" = "yes"' in recipe
+    assert '$(if $(OUTPUT),--output "$(OUTPUT)",)' in recipe
+
+
+@pytest.mark.parametrize("mode", ["preflight", "evaluate", "failure"])
+def test_evaluation_cli_holds_runtime_lock_through_report(
+    mapped_corpus, monkeypatch, tmp_path, mode
+):
+    import sys
+    from types import SimpleNamespace
+
+    from multilingual_rag_lab.adapters.inbound.cli import main as cli
+    from multilingual_rag_lab.adapters.outbound.storage.locking import mutation_lock
+    from multilingual_rag_lab.bootstrap.settings import Settings
+    from multilingual_rag_lab.domain.errors import IngestionFailed
+
+    corpus, repository = mapped_corpus
+    runtime = repository.root.parent
+    settings = Settings(runtime_dir=runtime)
+    manifest_path = corpus / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["corpus_version"] = "fixture"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    dataset = tmp_path / "fixture.jsonl"
+    dataset.write_text(json.dumps(row()), encoding="utf-8")
+    output = tmp_path / "report.json"
+    calls = []
+
+    def locked(stage):
+        calls.append(stage)
+        # A separate lock instance must fail just like a concurrent local mutation.
+        with pytest.raises(IngestionFailed, match="Another mutation"):
+            with mutation_lock(runtime):
+                pytest.fail("Evaluation released the mutation lock too early")
+
+    real_resolve = cli.resolve_document_ids
+
+    def resolve(*args):
+        locked("mapping")
+        return real_resolve(*args)
+
+    def count(*args):
+        locked("count")
+        return 24
+
+    store = SimpleNamespace(alias_name="rag_active", collection_name="rag_active", count=count)
+    container = SimpleNamespace(
+        store=store, index_spec=SPEC, settings=settings,
+        query=SimpleNamespace(embedder=object()),
+    )
+
+    def build(*args):
+        locked("build")
+        return container
+
+    class Manifest:
+        def __init__(self, path):
+            assert path == runtime / "index/manifest.json"
+
+        def load(self):
+            locked("manifest")
+            return SimpleNamespace(spec=SPEC, collection_name="fixture_snapshot")
+
+    def preflight(store, manifest, spec, mapping):
+        locked("preflight")
+        store.collection_name = manifest.collection_name
+        return dict.fromkeys(mapping, 1)
+
+    def evaluate(rows, backend, variant, *args, **kwargs):
+        locked(variant)
+        assert store.collection_name == "fixture_snapshot"
+        if mode == "failure":
+            raise RuntimeError("simulated evaluation failure")
+        return {"fixture_variant": variant}
+
+    real_dump = json.dump
+
+    def dump(*args, **kwargs):
+        locked("report")
+        return real_dump(*args, **kwargs)
+
+    monkeypatch.setattr(cli, "Settings", lambda: settings)
+    monkeypatch.setattr(cli, "load_dataset", lambda path: [row()])
+    monkeypatch.setattr(cli, "resolve_document_ids", resolve)
+    monkeypatch.setattr(cli, "build_container", build)
+    monkeypatch.setattr(cli, "FileIndexManifest", Manifest)
+    monkeypatch.setattr(cli, "preflight", preflight)
+    monkeypatch.setattr(cli, "ExperimentalRetriever", lambda *args: object())
+    monkeypatch.setattr(cli, "version", lambda name: "fixture")
+    monkeypatch.setattr(cli, "run_retrieval_evaluation", evaluate)
+    monkeypatch.setattr(cli.json, "dump", dump)
+    argv = ["rag-lab", "evaluate", str(dataset), "--corpus", str(corpus), "--output", str(output)]
+    if mode == "preflight":
+        argv.append("--preflight-only")
+    monkeypatch.setattr(sys, "argv", argv)
+    if mode == "failure":
+        with pytest.raises(RuntimeError, match="simulated evaluation failure"):
+            cli.main()
+    else:
+        cli.main()
+    assert calls[:4] == ["mapping", "build", "manifest", "preflight"]
+    if mode == "evaluate":
+        assert calls[4:] == ["count", "dense", "hybrid", "hybrid_rerank", "report"]
+        assert set(json.loads(output.read_text())) == {"dense", "hybrid", "hybrid_rerank"}
+    else:
+        assert not output.exists()
+    with mutation_lock(runtime):
+        pass  # Released on normal return, preflight-only return, and exceptions.
+
+
+@pytest.mark.parametrize("preflight_only", [False, True])
+def test_evaluation_cli_rejects_busy_runtime_before_build(
+    mapped_corpus, monkeypatch, tmp_path, preflight_only
+):
+    import sys
+
+    from multilingual_rag_lab.adapters.inbound.cli import main as cli
+    from multilingual_rag_lab.adapters.outbound.storage.locking import mutation_lock
+    from multilingual_rag_lab.bootstrap.settings import Settings
+    from multilingual_rag_lab.domain.errors import IngestionFailed
+
+    corpus, repository = mapped_corpus
+    runtime = repository.root.parent
+    monkeypatch.setattr(cli, "Settings", lambda: Settings(runtime_dir=runtime))
+    monkeypatch.setattr(cli, "load_dataset", lambda path: [row()])
+
+    def forbidden(*args):
+        pytest.fail("Busy runtime must fail before mapping or container build")
+
+    monkeypatch.setattr(cli, "resolve_document_ids", forbidden)
+    monkeypatch.setattr(cli, "build_container", forbidden)
+    argv = ["rag-lab", "evaluate", "fixture.jsonl", "--corpus", str(corpus)]
+    if preflight_only:
+        argv.append("--preflight-only")
+    monkeypatch.setattr(sys, "argv", argv)
+    with mutation_lock(runtime), pytest.raises(IngestionFailed, match="Another mutation"):
+        cli.main()

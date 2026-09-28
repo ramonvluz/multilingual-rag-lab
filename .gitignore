@@ -3,10 +3,12 @@
 __pycache__/
 .pytest_cache/
 .tmp_pytest*/
+.tmp_validation/
 .mypy_cache/
 .ruff_cache/
 runtime/documents/
 runtime/index/
+runtime/.mutation.lock
 # Public, curated demo and evaluation artifacts may be versioned deliberately.
 # Keep private or supplied raw corpora outside Git until explicitly curated.
 data/private/

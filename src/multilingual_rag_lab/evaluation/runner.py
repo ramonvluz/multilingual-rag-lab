@@ -10,7 +10,7 @@ from multilingual_rag_lab.domain.models import IndexSpec, RetrievedChunk
 from multilingual_rag_lab.evaluation.dataset import validate_dataset
 from multilingual_rag_lab.evaluation.metrics import ndcg_at_k, recall_at_k, reciprocal_rank
 from multilingual_rag_lab.evaluation.reporting import summarize
-from multilingual_rag_lab.evaluation.retrieval import reciprocal_rank_fusion
+from multilingual_rag_lab.evaluation.retrieval import rrf_scores
 
 
 class RetrievalBackend(Protocol):
@@ -51,11 +51,11 @@ def retrieve_candidates(
     if variant == "dense":
         return dense
     sparse = backend.sparse(query, candidate_pool)
-    ranks = reciprocal_rank_fusion(
+    ranks = rrf_scores(
         [[item.chunk.chunk_id for item in dense], [item.chunk.chunk_id for item in sparse]]
     )
     candidates = {item.chunk.chunk_id: item for item in [*dense, *sparse]}
-    fused = [candidates[item_id] for item_id in ranks]
+    fused = [RetrievedChunk(candidates[item_id].chunk, score) for item_id, score in ranks.items()]
     if variant == "hybrid_rerank":
         if not fused:
             raise ValueError("No candidates for reranking; cannot guarantee reranker warm-up")
@@ -134,7 +134,12 @@ def run_retrieval_evaluation(
                         "chunk_id": item.chunk.chunk_id,
                         "document_id": item.chunk.document_id,
                         "corpus_document_id": document_ids[item.chunk.document_id],
-                        "score": item.score,
+                        "score_type": {
+                            "dense": "dense",
+                            "hybrid": "rrf",
+                            "hybrid_rerank": "reranker",
+                        }[variant],
+                        "ranking_score": item.score,
                     }
                     for item in retrieved
                 ],
@@ -158,7 +163,7 @@ def run_retrieval_evaluation(
         "metadata": {
             **(provenance or {}),
             "timestamp": datetime.now(UTC).isoformat(),
-            "report_schema_version": "1.0.0",
+            "report_schema_version": "1.1.0",
             "variant": variant,
             "embedding_model": index_spec.embedding_model,
             "sparse_strategy": index_spec.sparse_strategy if variant != "dense" else None,

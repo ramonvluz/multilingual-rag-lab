@@ -19,7 +19,9 @@ class QwenReranker:
                 from sentence_transformers import CrossEncoder
             except ImportError as error:
                 raise DependencyUnavailable("sentence-transformers is unavailable") from error
-            self._model = CrossEncoder(self.model_name, device=self.device, trust_remote_code=True)
+            self._model = CrossEncoder(
+                self.model_name, device=self.device, revision=self.revision, trust_remote_code=False
+            )
         return self._model
 
     def rerank(
@@ -32,3 +34,5 @@ class QwenReranker:
             zip(chunks, scores, strict=True), key=lambda pair: float(pair[1]), reverse=True
         )
         return [RetrievedChunk(item.chunk, float(score)) for item, score in ranked[:limit]]
+
+    revision = "e61197ed45024b0ed8a2d74b80b4d909f1255473"

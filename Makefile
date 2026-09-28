@@ -1,6 +1,6 @@
 .PHONY: setup lint format typecheck test integration build up down smoke ingest ingest-corpus validate-corpus reindex benchmark
 setup:
-	uv sync --all-groups
+	uv sync --locked --all-groups
 lint:
 	uv run ruff check .
 format:
@@ -8,7 +8,7 @@ format:
 typecheck:
 	uv run mypy
 test:
-	uv run pytest tests/unit tests/api
+	uv run pytest
 integration:
 	uv run pytest tests/integration
 build:
@@ -20,12 +20,13 @@ down:
 smoke:
 	uv run pytest tests/smoke
 ingest:
-	uv run rag-lab ingest $(FILE)
+	docker compose exec app rag-lab ingest $(FILE)
 validate-corpus:
 	uv run rag-lab validate-corpus data/corpus/v1.0.0
 ingest-corpus:
-	uv run rag-lab ingest-corpus data/corpus/v1.0.0
+	docker compose exec app rag-lab ingest-corpus /app/data/corpus/v1.0.0
 reindex:
-	uv run rag-lab reindex
+	docker compose exec app rag-lab reindex
 benchmark:
-	uv run rag-lab evaluate $(DATASET)
+	@test "$(CONFIRM_BENCHMARK)" = "yes" || (echo "Official A/B/C requires explicit authorization: CONFIRM_BENCHMARK=yes"; exit 1)
+	docker compose run --rm -v ./evaluation:/app/evaluation app rag-lab evaluate /app/evaluation/datasets/golden_v1.jsonl $(if $(OUTPUT),--output "$(OUTPUT)",)

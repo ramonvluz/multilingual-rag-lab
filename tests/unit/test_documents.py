@@ -25,6 +25,12 @@ class Repository:
     def delete(self, document_id: str) -> None:
         self.docs.pop(document_id, None)
 
+    def source_path(self, document):
+        return self.root / document.document_id
+
+    def save_metadata(self, document):
+        self.docs[document.document_id] = document
+
 
 class Parser:
     def parse(self, source: Path, file_type: str) -> str:
@@ -44,9 +50,17 @@ class Embedder:
 class Store:
     def __init__(self) -> None:
         self.calls = 0
+        self.chunks = {}
 
     def upsert(self, chunks: list[Chunk], vectors: list[list[float]]) -> None:
         self.calls += 1
+        self.chunks.update({chunk.chunk_id: chunk for chunk in chunks})
+
+    def document_chunk_ids(self, document_id):
+        return {k for k, v in self.chunks.items() if v.document_id == document_id}
+
+    def delete_document(self, document_id):
+        self.chunks = {k: v for k, v in self.chunks.items() if v.document_id != document_id}
 
 
 def test_reingestion_is_idempotent(tmp_path: Path) -> None:
