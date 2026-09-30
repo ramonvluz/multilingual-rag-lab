@@ -4,7 +4,7 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 
 def _stable_hash(value: str | bytes) -> str:
@@ -54,12 +54,16 @@ class RetrievedChunk:
     score: float
 
 
+RetrievalMethod = Literal["dense", "sparse_original", "sparse_normalized"]
+
+
 @dataclass(frozen=True, slots=True)
 class Source:
     document_id: str
     chunk_id: str
     filename: str
     score: float
+    retrieval_method: RetrievalMethod
 
 
 @dataclass(frozen=True, slots=True)

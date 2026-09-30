@@ -48,8 +48,8 @@ def main() -> None:
         "--variants",
         nargs="+",
         choices=("dense", "hybrid", "hybrid_rerank"),
-        default=("dense", "hybrid", "hybrid_rerank"),
-        help="Variants to execute (default: all three); reranking can be expensive on CPU",
+        default=("dense", "hybrid"),
+        help="Variants to execute (default: dense + hybrid); reranking is opt-in and can be expensive on CPU",
     )
     evaluate.add_argument(
         "--output", type=Path, default=Path("evaluation/results/retrieval-v1.json")

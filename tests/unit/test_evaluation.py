@@ -323,15 +323,19 @@ def test_validate_only_cli_never_builds_retrieval_backend(
     assert not output.exists()
 
 
-def test_makefile_benchmark_output_is_optional_and_guarded():
-    recipe = (ROOT / "Makefile").read_text().split("benchmark:\n", 1)[1]
+def test_makefile_official_benchmark_is_ab_with_guarded_customizable_output():
+    makefile = (ROOT / "Makefile").read_text()
+    recipe = makefile.split("benchmark:\n", 1)[1]
     assert '"$(CONFIRM_BENCHMARK)" = "yes"' in recipe
-    assert '$(if $(OUTPUT),--output "$(OUTPUT)",)' in recipe
+    assert "--variants dense hybrid" in recipe
+    assert "hybrid_rerank" not in recipe
+    assert "OUTPUT ?= /app/evaluation/results/retrieval-v1-run-002.json" in makefile
+    assert '--output "$(OUTPUT)"' in recipe
 
 
 @pytest.mark.parametrize(
     "mode",
-    ["preflight", "evaluate", "dense_hybrid", "failure", "interrupted", "write_failure", "existing"],
+    ["preflight", "evaluate", "dense_hybrid", "rerank_only", "failure", "interrupted", "write_failure", "existing"],
 )
 def test_evaluation_cli_holds_runtime_lock_through_report(
     mapped_corpus, monkeypatch, tmp_path, capsys, mode
@@ -364,7 +368,7 @@ def test_evaluation_cli_holds_runtime_lock_through_report(
 
         def __init__(self, **kwargs):
             reranker_instances.append(kwargs)
-            assert mode != "dense_hybrid", "A/B must not instantiate the reranker"
+            assert mode not in {"evaluate", "dense_hybrid"}, "A/B must not instantiate the reranker"
 
     def locked(stage):
         calls.append(stage)
@@ -451,6 +455,10 @@ def test_evaluation_cli_holds_runtime_lock_through_report(
         argv.append("--preflight-only")
     elif mode == "dense_hybrid":
         argv.extend(["--variants", "dense", "hybrid"])
+    elif mode == "rerank_only":
+        argv.extend(["--variants", "hybrid_rerank"])
+    elif mode == "interrupted":
+        argv.extend(["--variants", "dense", "hybrid", "hybrid_rerank"])
     elif mode == "existing":
         output.write_bytes(b'{"existing":true}')
     monkeypatch.setattr(sys, "argv", argv)
@@ -470,14 +478,12 @@ def test_evaluation_cli_holds_runtime_lock_through_report(
     else:
         cli.main()
     assert calls[:4] == ["mapping", "build", "manifest", "preflight"]
-    if mode in {"evaluate", "dense_hybrid"}:
-        selected = ["dense", "hybrid"]
-        if mode == "evaluate":
-            selected.append("hybrid_rerank")
+    if mode in {"evaluate", "dense_hybrid", "rerank_only"}:
+        selected = ["hybrid_rerank"] if mode == "rerank_only" else ["dense", "hybrid"]
         assert evaluated == selected
         assert calls[4:] == ["count", *[stage for v in selected for stage in (v, "report")]]
         assert set(json.loads(output.read_text())) == set(selected)
-        assert len(reranker_instances) == (mode == "evaluate")
+        assert len(reranker_instances) == (mode == "rerank_only")
         assert capsys.readouterr().err.splitlines() == [f"[{v}] 1/1" for v in selected]
     elif mode in {"interrupted", "write_failure"}:
         assert output.read_bytes() == last_saved

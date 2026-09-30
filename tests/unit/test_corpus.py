@@ -53,6 +53,23 @@ def test_unregistered_document_stops_validation(tmp_path: Path) -> None:
         validate_corpus(root, expected_count=1)
 
 
+@pytest.mark.parametrize("value", [[], None, "manifest", 24])
+def test_manifest_root_must_be_object(tmp_path: Path, value: object) -> None:
+    root = write_corpus(tmp_path)
+    (root / "manifest.json").write_text(json.dumps(value), encoding="utf-8")
+    with pytest.raises(CorpusValidationError, match="root must be an object"):
+        validate_corpus(root, expected_count=1)
+
+
+def test_nested_extra_with_declared_basename_is_rejected(tmp_path: Path) -> None:
+    root = write_corpus(tmp_path)
+    nested = root / "documents" / "extra"
+    nested.mkdir()
+    (nested / "DOC-001_fixture.md").write_text("extra copy", encoding="utf-8")
+    with pytest.raises(CorpusValidationError, match="extra/DOC-001_fixture.md"):
+        validate_corpus(root, expected_count=1)
+
+
 class IngestSpy:
     def __init__(self) -> None:
         self.calls: list[tuple[str, bytes]] = []

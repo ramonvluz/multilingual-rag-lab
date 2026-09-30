@@ -4,7 +4,7 @@ from pathlib import Path
 
 from filelock import FileLock, Timeout
 
-from multilingual_rag_lab.domain.errors import IngestionFailed
+from multilingual_rag_lab.domain.errors import MutationBusy
 
 
 @contextmanager
@@ -15,4 +15,4 @@ def mutation_lock(runtime: Path) -> Iterator[None]:
         with FileLock(runtime / ".mutation.lock", timeout=0):
             yield
     except Timeout as error:
-        raise IngestionFailed("Another mutation is running on this runtime; retry later") from error
+        raise MutationBusy("Another mutation is running on this runtime; retry later") from error

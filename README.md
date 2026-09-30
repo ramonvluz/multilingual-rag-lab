@@ -4,8 +4,14 @@ A compact, evaluation-driven Retrieval-Augmented Generation laboratory for PT-BR
 
 ## Quick start
 
+Prerequisites: Docker Engine/Desktop with Compose v2 or later. Local development
+also needs Python 3.12 and uv (reference version 0.9.27); GNU Make is optional.
+Commands below assume the repository root. On PowerShell, `Copy-Item .env.example .env`
+is equivalent to `cp`. Do not overwrite an existing private `.env`.
+
 ```bash
 cp .env.example .env
+# Optional for local Python development; not needed to run the containers:
 uv sync --locked --all-groups
 # On native Linux, prepare ownership of the runtime mount once (no recursive chown):
 # docker compose build app
@@ -16,11 +22,17 @@ docker compose restart app
 docker compose exec app rag-lab ingest-corpus /app/data/corpus/v1.0.0
 ```
 
-Use `POST /documents` to upload PDF, DOCX, HTML, Markdown, CSV, or XLSX, and `POST /query` with `{"question":"..."}`. `GET /health/live` only checks process life; readiness also requires Qdrant.
+The API is at `http://127.0.0.1:8000` (OpenAPI UI: `/docs`); `APP_PORT` overrides the
+host port. Use `POST /documents` to upload PDF, DOCX, HTML, Markdown, CSV, or XLSX,
+and `POST /query` with `{"question":"..."}`. `GET /health/live` checks process life;
+`GET /health/ready` checks Qdrant plus manifest/configuration/alias/schema consistency.
 
 ## Design
 
-Original source files in `runtime/documents` are the source of truth. Qdrant is a reconstructable derived index, with unique physical generations named `rag_<IndexSpec fingerprint>_<uuid>`. The default operational pipeline is dense retrieval. Hybrid BM25/RRF and reranking are experimental evaluation variants, not public API choices.
+Original source files in `runtime/documents` are the source of truth. Qdrant is a
+reconstructable derived index, with unique physical generations named
+`rag_<IndexSpec fingerprint>_<uuid>`. Operational generation and experimental
+retrieval evaluation are deliberately separate paths; A/B/C are not public API choices.
 
 `rag-lab reindex` is explicit: under a local mutation lock it builds a new empty candidate collection from persisted sources, validates every point, moves the active Qdrant alias, then atomically writes its manifest. A manifest write failure rolls back the alias, including the first-index case. Failed candidates are cleaned only when safely inactive; cleanup/rollback errors are explicit. Previous valid collections are retained for rollback. Startup never creates or reindexes an index. See architecture notes for the process-crash recovery boundary.
 
@@ -41,7 +53,60 @@ Run the explicit reindex command again only when rebuilding an index.
 
 The API runs without a Gemini key; generation then abstains while still returning retrieval evidence. Never expose this local demonstration service publicly without authentication, authorization, upload hardening, and operational controls.
 
-## Golden V1 retrieval evaluation (no official results published)
+## Grounded generation and the public query contract
+
+`QueryKnowledge` builds its evidence pool in this exact order:
+
+1. Dense `top_k` using the original question.
+2. Sparse/BM25 `top_k` using the original question.
+3. Supplemental Sparse/BM25 `top_k` using NFKD with combining marks removed,
+   **only when this changes the question**. Case and punctuation are retained.
+4. Deduplicate by `chunk_id`, retaining the first occurrence and its score/origin.
+5. Send the entire union to the optional LLM with the original question.
+
+There is no RRF, reranker, router or global score sort in this operational path.
+`RETRIEVAL_TOP_K=5` applies separately to each branch, so the union contains at most
+10 chunks without normalization or 15 with it, often fewer after deduplication.
+
+Q-001 exposed the difference between retrieving the correct **document** and the
+particular chunk containing the answer. Operational checks motivated supplemental
+normalized Sparse retrieval. It augments, never replaces, original Sparse and does
+not change the Golden methodology or the A/B/C evaluation algorithms.
+
+Gemini answers only from evidence, uses exact retrieved chunk IDs as citations and
+must return exactly `INSUFFICIENT_EVIDENCE`, with no citations or extra text, when
+evidence cannot answer the question. The use case checks that sentinel after stripping
+outer whitespace and returns the canonical answer:
+`I don't have enough evidence to answer this question.`
+It sets `abstained=true`, clears `cited_chunk_ids` and preserves `sources`.
+Without the sentinel, only retrieved IDs actually present in the answer are accepted;
+invented IDs are ignored. Zero valid IDs also causes canonical abstention. Valid
+answers are returned unchanged. No evidence skips generation; no configured LLM
+keeps evidence but abstains with the generation-not-configured message.
+
+`sources` contains `document_id` (operational SHA-256), `chunk_id`, `filename`,
+`score` and `retrieval_method`:
+
+| retrieval_method | Meaning of score |
+|---|---|
+| `dense` | Cosine similarity |
+| `sparse_original` | BM25 for the original query |
+| `sparse_normalized` | BM25 for the supplemental normalized query |
+
+These scales are **not comparable**. Sources are in context-construction order,
+not a global relevance ranking. A chunk found in several branches keeps the first
+branch's provenance and score. Sources may include evidence not cited by the answer.
+`metadata` is currently an empty extensible object. This is citation-ID validation,
+not semantic verification of every claim or a guarantee that the model obeys its prompt.
+
+The API rejects blank/whitespace-only questions with 422 without changing valid
+questions. Expected application failures use JSON `{"detail":"..."}`:
+404 document missing; 400 unsupported/unsafe filename or empty upload; 413 oversized
+upload; 409 mutation busy; 503 unavailable dependency or unready/incompatible index;
+502 generation-provider failure; 500 corrupt document/internal ingestion or application
+failure. Internal diagnostics and tracebacks are not exposed.
+
+## Golden V1 retrieval evaluation
 
 The approved, unchanged 48-query dataset is `evaluation/datasets/golden_v1.jsonl`.
 Its supplied audit and summary are in `evaluation/reports/`. Ground truth is binary
@@ -60,18 +125,57 @@ To also validate Qdrant without running retrieval or loading models, use the sam
 command with `--preflight-only` instead (inside Compose, mount `./evaluation:/app/evaluation`
 as shown below). This prints only integrity counts and the physical snapshot name.
 
-For a **future, explicitly authorized benchmark**, use the current app source and
-the existing Compose network/cache/runtime, after the explicit migration to the corrected BM25 v2 IndexSpec:
+### Official run-001 and release-candidate reproduction
+
+The official [run-001 JSON](evaluation/results/retrieval-v1-run-001.json) contains
+A (Dense) and B (Dense + BM25 + RRF). The reference environment is CPU-only Docker
+on an Intel i5-8365U with 32 GB RAM; this is not a universal performance claim.
+
+| Metric | Dense (A) | Hybrid (B) |
+|---|---:|---:|
+| Mean latency (ms) | 1298.3 | 1294.9 |
+| p50 latency (ms) | 1301.7 | 1290.8 |
+| p95 latency (ms) | 1756.7 | 1809.7 |
+| MRR@10 | 0.8186 | 0.7578 |
+| nDCG@10 | 0.8398 | 0.7964 |
+| nDCG@5 | 0.8197 | 0.7622 |
+| Recall@1 | 0.6402 | 0.6061 |
+| Recall@3 | 0.8561 | 0.7500 |
+| Recall@5 | 0.9015 | 0.8523 |
+
+Dense achieved higher aggregate retrieval-quality metrics in this document-level
+run and is the V1 reference baseline, not a universally superior strategy. Hybrid
+remains experimental. C (Hybrid + Qwen reranker) was interrupted during earlier
+CPU validation because of excessive computational cost; there is no completed
+official C result. See the [human report](evaluation/reports/retrieval_v1_summary.md)
+for type/language cuts and limitations. These retrieval scores do not measure the
+operational evidence union or generation correctness.
+
+Run-002 is **PENDING RELEASE-CANDIDATE REPRODUCTION** after review and code freeze.
+Do not reindex merely to repeat evaluation against the already compatible index.
+For a separately authorized run, build the reviewed source and use the existing
+Compose network/cache/runtime. On native Linux, give container UID 10001 write
+access specifically to `evaluation/results`, not to the frozen dataset or reports:
 
 ```bash
 docker compose build app
-docker compose run --rm -v ./evaluation:/app/evaluation app rag-lab evaluate /app/evaluation/datasets/golden_v1.jsonl --corpus /app/data/corpus/v1.0.0 --candidate-pool 30 --top-k 10 --output /app/evaluation/results/retrieval-v1-run-001.json
+docker compose run --rm --no-deps --user 0 -v ./evaluation:/app/evaluation app chown 10001:10001 /app/evaluation/results
 ```
 
-This runs A (dense), B (dense + sparse BM25 + RRF), C (B + Qwen reranker), exclusively
-in the evaluation layer by default. To run only A/B, append `--variants dense hybrid`
-to the evaluate command. `hybrid_rerank` is optional and can be computationally expensive
-on CPU-only systems; selecting only A/B does not instantiate the reranker.
+Then the official A/B release command is:
+
+```bash
+make benchmark CONFIRM_BENCHMARK=yes
+# Equivalent without GNU Make (only after separate authorization):
+docker compose run --rm -v ./evaluation:/app/evaluation app rag-lab evaluate /app/evaluation/datasets/golden_v1.jsonl --corpus /app/data/corpus/v1.0.0 --candidate-pool 30 --top-k 10 --variants dense hybrid --output /app/evaluation/results/retrieval-v1-run-002.json
+```
+
+The CLI defaults to A/B when `--variants` is omitted, and the official Make wrapper
+selects A/B explicitly. C remains experimental and
+available explicitly as `--variants hybrid_rerank`, exclusively in the evaluation
+layer, but is not part of the official CPU release benchmark. Selecting A/B does
+not instantiate the reranker. Use `OUTPUT=/app/evaluation/results/<new-name>.json`
+to override the Make wrapper's run-002 default.
 Progress such as `[dense] 1/44` is printed to stderr for completed answerable queries,
 excluding warm-up and unanswerable queries, outside the retrieval latency timer.
 Each completed variant is atomically saved to the same JSON report. If a later variant
@@ -100,7 +204,9 @@ queries; percentiles use linear interpolation at `(n-1)*p`. The report records t
 policy, UTC timestamp, dataset/corpus hashes and versions, package versions, device,
 model names, IndexSpec/fingerprint, collection/alias, document mapping and pool sizes.
 Use a new output filename for every run; existing reports are not overwritten.
-`evaluation/results/` is versionable and currently contains no benchmark results.
+`evaluation/results/` is versionable and contains the immutable run-001. Never
+overwrite it. Run-002 will be a separate artifact compared against run-001; record
+the freeze commit alongside the comparison rather than inventing historical Git provenance.
 
 Preflight checks schema (dense 1024/cosine, BM25 IDF), every official operational SHA,
 unknown documents, chunk identity/sequence, materialized vectors and total count.
@@ -121,8 +227,10 @@ thermal noise or claim statistical significance from a single run.
 Compose explicitly forwards the documented model, chunk, upload and log settings;
 its Qdrant URL stays `http://qdrant:6333`. `.env` is optional and never versioned.
 For local Python commands, configure a reachable Qdrant URL: Compose does not publish
-6333. `GEMINI_API_KEY` may be forwarded but is not required. **Gemini live remains
-pending citation/abstention contract corrections; do not enable generation yet.**
+6333. `GEMINI_API_KEY` may be forwarded but is not required. The reference generation
+default is `LLM_MODEL=gemini-3.5-flash-lite`, used successfully in the final manual
+E2E checks (Q-001, Q-029 and abstention on Q-045); it remains overridable through
+`LLM_MODEL`. Those checks are not an exhaustive generation benchmark or part of CI.
 
 The image runs as UID 10001. Its HF and FastEmbed cache directories are pre-created
 with that ownership; FastEmbed persists under the same cache volume. Bind-mounted
@@ -153,7 +261,14 @@ imports, not container end-to-end behavior. `make build/up/down` manages Compose
 without deleting volumes. Ingest/reindex targets run inside Compose; `FILE` is a
 container path. `validate-corpus` is local and read-only. Make requires GNU Make;
 on Windows use the equivalent `uv`/`docker compose` commands directly.
-`make benchmark` is guarded by `CONFIRM_BENCHMARK=yes`; `OUTPUT` is optional and
-defaults to the CLI output path when omitted. Use it only after separate benchmark authorization.
+`make benchmark` is guarded by `CONFIRM_BENCHMARK=yes`; `OUTPUT` defaults to
+`/app/evaluation/results/retrieval-v1-run-002.json`. Use it only after separate
+benchmark authorization. CI and Docker use uv 0.9.27 and Python 3.12. Frozen corpus,
+Golden and run-001 bytes must be preserved; the report's historical package version
+must not be updated when the application version changes.
+
+## License
+
+MIT, copyright 2026 Ramon Valgas Luz. See [LICENSE](LICENSE).
 
 See [architecture](docs/architecture.md) and [ADRs](docs/decisions/).

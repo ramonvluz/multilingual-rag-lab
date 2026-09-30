@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     chunk_size: int = 512
     retrieval_top_k: int = 5
     gemini_api_key: str = ""
-    llm_model: str = "gemini-3.8-flash"
+    llm_model: str = "gemini-3.5-flash-lite"
     upload_max_size: int = 10 * 1024 * 1024
     log_level: str = "INFO"
     runtime_dir: Path = Path("runtime")

@@ -18,6 +18,10 @@ class IngestionFailed(ApplicationError):
     pass
 
 
+class MutationBusy(IngestionFailed):
+    """Another process holds the local runtime mutation lock."""
+
+
 class IndexIncompatible(ApplicationError):
     pass
 

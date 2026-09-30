@@ -1,10 +1,14 @@
 # Architecture
 
-Inbound FastAPI and CLI adapters invoke application use cases. The application layer only depends on ports for parsing, chunking, embeddings, source persistence, vector retrieval, reranking, and generation. The composition root connects those ports to Docling, Qwen, Qdrant, filesystem, and Gemini adapters.
+Inbound FastAPI and CLI adapters invoke application use cases. The application layer only depends on ports for parsing, chunking, embeddings, source persistence, vector retrieval, and generation. The composition root connects those ports to Docling, Qwen, Qdrant, filesystem, and Gemini adapters. Reranking belongs to the experimental evaluation backend, not the operational application ports.
 
 Ingestion validates a filename and payload, creates a SHA-256 content identity, saves the original under an internal document ID path, parses, chunks, embeds, and indexes it. The same bytes are idempotent.
 
-Query embeds the original multilingual question without translation, retrieves dense candidates, builds chunk-labelled context, and optionally invokes Gemini. Citations are accepted only when they match retrieved chunk IDs.
+Query embeds the original multilingual question without translation and retrieves Dense top-k, Sparse/BM25 top-k for the original query, and supplemental Sparse top-k for its NFKD/non-combining form only when that differs. The union preserves Dense, original Sparse, then normalized Sparse order and deduplicates by chunk ID, keeping the first score and `retrieval_method`. There is no operational RRF/reranker or global score sort: Dense cosine and Sparse BM25 scores are not comparable. All union chunks form labelled context for optional Gemini generation, with the original question unchanged.
+
+The generation prompt requires exactly `INSUFFICIENT_EVIDENCE` when evidence cannot answer the question. Query checks the whitespace-trimmed sentinel before citation validation, returning canonical abstention with sources retained and no citations. Otherwise only retrieved IDs appearing in the answer are accepted; no valid ID also triggers abstention. Valid responses remain unchanged. This deterministic protocol does not semantically verify claims. No evidence skips generation; no LLM preserves evidence with a configuration abstention. FastAPI exposes the existing QueryResult/Source dataclasses in OpenAPI, rejects blank questions, and maps domain failures to safe JSON HTTP errors, including a distinct MutationBusy (409).
+
+The official Golden V1 benchmark evaluates document-level A/B, not this operational union or answer-bearing chunk recall. C remains explicitly available in the evaluation layer and is excluded from the reference CPU release benchmark because of cost. See the retrieval summary and ADR 0005 amendment.
 
 Each `IndexSpec` captures embedding/tokenizer revisions, dimension, distance, chunking strategy/version/size and the materialized sparse configuration. `qdrant-bm25-idf-v2` uses FastEmbed document `embed`, query `query_embed`, Qdrant IDF, and no language-specific stemming/stopwords. Defaults k=1.2, b=0.75, avg_len=256, token_max_length=40 are explicit. English is the library's inert language parameter with stemming disabled, not an English lexical pipeline.
 

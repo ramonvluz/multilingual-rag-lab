@@ -33,7 +33,6 @@ class Container:
     list_documents: ListDocuments
     delete: DeleteDocument
     query: QueryKnowledge
-    reindex: ReindexCorpus
     index_spec: IndexSpec
 
 
@@ -67,7 +66,6 @@ def build_container(settings: Settings | None = None) -> Container:
         else None
     )
     lock = partial(mutation_lock, settings.runtime_dir)
-    reindex = ReindexCorpus(repository, parser, chunker, embedder, store, manifest, lock)
     return Container(
         settings,
         repository,
@@ -85,7 +83,6 @@ def build_container(settings: Settings | None = None) -> Container:
         ListDocuments(repository),
         DeleteDocument(repository, store, lock),
         QueryKnowledge(embedder, store, repository, llm, settings.retrieval_top_k),
-        reindex,
         spec,
     )
 

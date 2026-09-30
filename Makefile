@@ -1,4 +1,5 @@
 .PHONY: setup lint format typecheck test integration build up down smoke ingest ingest-corpus validate-corpus reindex benchmark
+OUTPUT ?= /app/evaluation/results/retrieval-v1-run-002.json
 setup:
 	uv sync --locked --all-groups
 lint:
@@ -28,5 +29,5 @@ ingest-corpus:
 reindex:
 	docker compose exec app rag-lab reindex
 benchmark:
-	@test "$(CONFIRM_BENCHMARK)" = "yes" || (echo "Official A/B/C requires explicit authorization: CONFIRM_BENCHMARK=yes"; exit 1)
-	docker compose run --rm -v ./evaluation:/app/evaluation app rag-lab evaluate /app/evaluation/datasets/golden_v1.jsonl $(if $(OUTPUT),--output "$(OUTPUT)",)
+	@test "$(CONFIRM_BENCHMARK)" = "yes" || (echo "Official A/B requires explicit authorization: CONFIRM_BENCHMARK=yes"; exit 1)
+	docker compose run --rm -v ./evaluation:/app/evaluation app rag-lab evaluate /app/evaluation/datasets/golden_v1.jsonl --variants dense hybrid --output "$(OUTPUT)"

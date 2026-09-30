@@ -28,7 +28,10 @@ class Repository:
 
 CHUNKS = [Chunk.create("fixture", i, f"Evidence {i}") for i in range(2)]
 INVENTED_ID = Chunk.create("not-retrieved", 0, "Invented evidence").chunk_id
-SOURCES = [Source("fixture", chunk.chunk_id, "fixture.md", 1.0) for chunk in CHUNKS]
+SOURCES = [
+    Source("fixture", CHUNKS[0].chunk_id, "fixture.md", 1.0, "dense"),
+    Source("fixture", CHUNKS[1].chunk_id, "fixture.md", 1.0, "sparse_original"),
+]
 
 
 class EvidenceStore:
@@ -120,6 +123,9 @@ def test_union_preserves_dense_order_and_first_occurrence_without_truncating() -
         chunk.chunk_id for chunk in expected_chunks
     ]
     assert [source.score for source in result.sources] == [0.4, 0.2, 5.0]
+    assert [source.retrieval_method for source in result.sources] == [
+        "dense", "dense", "sparse_original"
+    ]
     expected_context = "\n\n".join(f"[{chunk.chunk_id}]\n{chunk.text}" for chunk in expected_chunks)
     assert llm.calls == [("Pergunta original", expected_context)]
     assert result.cited_chunk_ids == [sparse_only.chunk_id]
@@ -177,6 +183,9 @@ def test_supplemental_sparse_preserves_original_query_and_three_branch_union() -
         chunk.chunk_id for chunk in expected_chunks
     ]
     assert [source.score for source in result.sources] == [0.4, 0.7, 0.8]
+    assert [source.retrieval_method for source in result.sources] == [
+        "dense", "sparse_original", "sparse_normalized"
+    ]
     expected_context = "\n\n".join(f"[{chunk.chunk_id}]\n{chunk.text}" for chunk in expected_chunks)
     assert llm.calls == [(question, expected_context)]
     assert result.cited_chunk_ids == [normalized_only.chunk_id]

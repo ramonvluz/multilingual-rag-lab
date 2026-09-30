@@ -45,6 +45,8 @@ def validate_corpus(root: Path, expected_count: int = EXPECTED_CORPUS_DOCUMENT_C
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
         raise CorpusValidationError("Corpus manifest.json is not valid JSON") from error
+    if not isinstance(manifest, dict):
+        raise CorpusValidationError("Corpus manifest JSON root must be an object")
     entries = manifest.get("documents")
     if not isinstance(entries, list):
         raise CorpusValidationError("Corpus manifest must contain a documents list")
@@ -83,7 +85,10 @@ def validate_corpus(root: Path, expected_count: int = EXPECTED_CORPUS_DOCUMENT_C
         declared_names.add(filename)
         declared_ids.add(document_id)
         validated.append((entry, path))
-    actual_names = {path.name for path in documents_dir.rglob("*") if path.is_file()}
+    actual_names = {
+        path.relative_to(documents_dir).as_posix()
+        for path in documents_dir.rglob("*") if path.is_file()
+    }
     extras = actual_names - declared_names
     if extras:
         raise CorpusValidationError(f"Corpus documents directory has unregistered files: {sorted(extras)}")

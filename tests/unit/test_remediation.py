@@ -15,7 +15,7 @@ from multilingual_rag_lab.adapters.outbound.vector_store import QdrantKnowledgeS
 from multilingual_rag_lab.bootstrap.composition import make_index_spec
 from multilingual_rag_lab.bootstrap.logging import configure_logging
 from multilingual_rag_lab.bootstrap.settings import Settings
-from multilingual_rag_lab.domain.errors import DocumentCorrupt
+from multilingual_rag_lab.domain.errors import DocumentCorrupt, MutationBusy
 from multilingual_rag_lab.domain.models import Document, SparseConfig
 from multilingual_rag_lab.evaluation.retrieval import rrf_scores
 from multilingual_rag_lab.evaluation.runner import retrieve_candidates
@@ -59,6 +59,9 @@ def test_sparse_document_and_query_paths_are_distinct(monkeypatch):
 def test_local_mutation_lock_excludes_second_process_and_releases(tmp_path):
     code = "from pathlib import Path; from multilingual_rag_lab.adapters.outbound.storage.locking import mutation_lock; import sys;\nwith mutation_lock(Path(sys.argv[1])): pass"
     with mutation_lock(tmp_path):
+        with pytest.raises(MutationBusy):
+            with mutation_lock(tmp_path):
+                pytest.fail("A busy mutation lock must fail with its domain error")
         result = subprocess.run(
             [sys.executable, "-B", "-c", code, str(tmp_path)], capture_output=True, text=True
         )

@@ -39,11 +39,5 @@ class DocumentRepository(Protocol):
     def source_path(self, document: Document) -> Path: ...
 
 
-class Reranker(Protocol):
-    def rerank(
-        self, query: str, chunks: Sequence[RetrievedChunk], limit: int
-    ) -> list[RetrievedChunk]: ...
-
-
 class LLMPort(Protocol):
     def generate(self, question: str, context: str) -> str: ...

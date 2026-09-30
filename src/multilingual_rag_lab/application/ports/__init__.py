@@ -5,7 +5,6 @@ from .interfaces import (
     Embedder,
     KnowledgeStore,
     LLMPort,
-    Reranker,
 )
 
 __all__ = [
@@ -15,5 +14,4 @@ __all__ = [
     "Embedder",
     "KnowledgeStore",
     "LLMPort",
-    "Reranker",
 ]
