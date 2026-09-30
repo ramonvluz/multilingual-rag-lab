@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import dataclass
 
 from multilingual_rag_lab.application.ports import (
@@ -8,7 +9,12 @@ from multilingual_rag_lab.application.ports import (
     KnowledgeStore,
     LLMPort,
 )
-from multilingual_rag_lab.domain.models import QueryResult, Source
+from multilingual_rag_lab.domain.models import QueryResult, RetrievedChunk, Source
+
+
+def strip_diacritics(text: str) -> str:
+    """Normalize only the supplemental lexical query, preserving case and punctuation."""
+    return "".join(char for char in unicodedata.normalize("NFKD", text) if not unicodedata.combining(char))
 
 
 @dataclass(slots=True)
@@ -20,7 +26,18 @@ class QueryKnowledge:
     top_k: int
 
     def execute(self, question: str) -> QueryResult:
-        retrieved = self.store.search(self.embedder.embed([question])[0], self.top_k)
+        dense = self.store.search(self.embedder.embed([question])[0], self.top_k)
+        sparse = self.store.sparse_search(question, self.top_k)
+        normalized = strip_diacritics(question)
+        sparse_normalized = (
+            self.store.sparse_search(normalized, self.top_k) if normalized != question else []
+        )
+        retrieved: list[RetrievedChunk] = []
+        seen: set[str] = set()
+        for item in [*dense, *sparse, *sparse_normalized]:
+            if item.chunk.chunk_id not in seen:
+                seen.add(item.chunk.chunk_id)
+                retrieved.append(item)
         if not retrieved:
             return QueryResult(
                 "I don't have enough evidence to answer this question.", [], [], True
@@ -37,5 +54,13 @@ class QueryKnowledge:
                 "Generation is not configured; retrieved evidence is available.", sources, [], True
             )
         answer = self.llm.generate(question, "\n\n".join(context_lines))
+        if answer.strip() == "INSUFFICIENT_EVIDENCE":
+            return QueryResult(
+                "I don't have enough evidence to answer this question.", sources, [], True
+            )
         cited = [source.chunk_id for source in sources if source.chunk_id in answer]
+        if not cited:
+            return QueryResult(
+                "I don't have enough evidence to answer this question.", sources, [], True
+            )
         return QueryResult(answer, sources, cited, False)

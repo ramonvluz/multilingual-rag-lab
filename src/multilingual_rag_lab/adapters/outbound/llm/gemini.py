@@ -16,8 +16,11 @@ class GeminiAdapter:
             from google import genai
         except ImportError as error:
             raise DependencyUnavailable("google-genai is unavailable") from error
-        prompt = f"""Answer only from the evidence below. If it is insufficient, say so.
-Use cited chunk IDs exactly as [chunk_id]; never invent citations.
+        prompt = f"""Answer only from the evidence below.
+Use retrieved chunk IDs exactly as [chunk_id]; never invent citations.
+If the evidence is insufficient to answer the question, return exactly:
+INSUFFICIENT_EVIDENCE
+In that case return nothing else: no explanation, no additional text, and no citations.
 
 Evidence:
 {context}
