@@ -329,9 +329,12 @@ def test_makefile_benchmark_output_is_optional_and_guarded():
     assert '$(if $(OUTPUT),--output "$(OUTPUT)",)' in recipe
 
 
-@pytest.mark.parametrize("mode", ["preflight", "evaluate", "failure"])
+@pytest.mark.parametrize(
+    "mode",
+    ["preflight", "evaluate", "dense_hybrid", "failure", "interrupted", "write_failure", "existing"],
+)
 def test_evaluation_cli_holds_runtime_lock_through_report(
-    mapped_corpus, monkeypatch, tmp_path, mode
+    mapped_corpus, monkeypatch, tmp_path, capsys, mode
 ):
     import sys
     from types import SimpleNamespace
@@ -352,6 +355,16 @@ def test_evaluation_cli_holds_runtime_lock_through_report(
     dataset.write_text(json.dumps(row()), encoding="utf-8")
     output = tmp_path / "report.json"
     calls = []
+    evaluated = []
+    reranker_instances = []
+    last_saved = None
+
+    class Reranker:
+        revision = "fixture"
+
+        def __init__(self, **kwargs):
+            reranker_instances.append(kwargs)
+            assert mode != "dense_hybrid", "A/B must not instantiate the reranker"
 
     def locked(stage):
         calls.append(stage)
@@ -394,16 +407,32 @@ def test_evaluation_cli_holds_runtime_lock_through_report(
         return dict.fromkeys(mapping, 1)
 
     def evaluate(rows, backend, variant, *args, **kwargs):
+        nonlocal last_saved
         locked(variant)
         assert store.collection_name == "fixture_snapshot"
+        # The previous variant must already be durable before this one starts.
+        if evaluated:
+            last_saved = output.read_bytes()
+            assert json.loads(last_saved) == {
+                name: {"fixture_variant": name} for name in evaluated
+            }
+        else:
+            assert not output.exists()
+        if mode == "interrupted" and variant == "hybrid_rerank":
+            raise KeyboardInterrupt
         if mode == "failure":
             raise RuntimeError("simulated evaluation failure")
+        evaluated.append(variant)
+        kwargs["progress"](1, 1)
         return {"fixture_variant": variant}
 
     real_dump = json.dump
 
     def dump(*args, **kwargs):
         locked("report")
+        if mode == "write_failure" and len(args[0]) == 2:
+            args[1].write('{"incomplete":')
+            raise KeyboardInterrupt
         return real_dump(*args, **kwargs)
 
     monkeypatch.setattr(cli, "Settings", lambda: settings)
@@ -413,22 +442,48 @@ def test_evaluation_cli_holds_runtime_lock_through_report(
     monkeypatch.setattr(cli, "FileIndexManifest", Manifest)
     monkeypatch.setattr(cli, "preflight", preflight)
     monkeypatch.setattr(cli, "ExperimentalRetriever", lambda *args: object())
+    monkeypatch.setattr(cli, "QwenReranker", Reranker)
     monkeypatch.setattr(cli, "version", lambda name: "fixture")
     monkeypatch.setattr(cli, "run_retrieval_evaluation", evaluate)
     monkeypatch.setattr(cli.json, "dump", dump)
     argv = ["rag-lab", "evaluate", str(dataset), "--corpus", str(corpus), "--output", str(output)]
     if mode == "preflight":
         argv.append("--preflight-only")
+    elif mode == "dense_hybrid":
+        argv.extend(["--variants", "dense", "hybrid"])
+    elif mode == "existing":
+        output.write_bytes(b'{"existing":true}')
     monkeypatch.setattr(sys, "argv", argv)
     if mode == "failure":
         with pytest.raises(RuntimeError, match="simulated evaluation failure"):
             cli.main()
+    elif mode in {"interrupted", "write_failure"}:
+        with pytest.raises(KeyboardInterrupt):
+            cli.main()
+    elif mode == "existing":
+        with pytest.raises(SystemExit) as error:
+            cli.main()
+        assert error.value.code == 2
+        assert output.read_bytes() == b'{"existing":true}'
+        assert calls == ["mapping"] and not evaluated and not reranker_instances
+        return
     else:
         cli.main()
     assert calls[:4] == ["mapping", "build", "manifest", "preflight"]
-    if mode == "evaluate":
-        assert calls[4:] == ["count", "dense", "hybrid", "hybrid_rerank", "report"]
-        assert set(json.loads(output.read_text())) == {"dense", "hybrid", "hybrid_rerank"}
+    if mode in {"evaluate", "dense_hybrid"}:
+        selected = ["dense", "hybrid"]
+        if mode == "evaluate":
+            selected.append("hybrid_rerank")
+        assert evaluated == selected
+        assert calls[4:] == ["count", *[stage for v in selected for stage in (v, "report")]]
+        assert set(json.loads(output.read_text())) == set(selected)
+        assert len(reranker_instances) == (mode == "evaluate")
+        assert capsys.readouterr().err.splitlines() == [f"[{v}] 1/1" for v in selected]
+    elif mode in {"interrupted", "write_failure"}:
+        assert output.read_bytes() == last_saved
+        expected = {"dense", "hybrid"} if mode == "interrupted" else {"dense"}
+        assert set(json.loads(output.read_text())) == expected
+        assert not list(output.parent.glob(f".{output.name}.*.tmp"))
     else:
         assert not output.exists()
     with mutation_lock(runtime):
@@ -462,3 +517,39 @@ def test_evaluation_cli_rejects_busy_runtime_before_build(
     monkeypatch.setattr(sys, "argv", argv)
     with mutation_lock(runtime), pytest.raises(IngestionFailed, match="Another mutation"):
         cli.main()
+
+
+@pytest.mark.parametrize("variant", ["dense", "hybrid", "hybrid_rerank"])
+def test_progress_counts_only_completed_answerable_queries_without_changing_report(
+    monkeypatch, variant
+):
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    from multilingual_rag_lab.evaluation import runner
+
+    fixed_time = datetime(2026, 1, 1, tzinfo=UTC)
+    monkeypatch.setattr(runner, "datetime", SimpleNamespace(now=lambda tz: fixed_time))
+
+    class TimedBackend(Backend):
+        def tick(self, stage, query, limit):
+            self.calls.append((stage, query, limit))
+            self.clock += 100 if query == WARMUP_QUERY else 1
+
+    gap = {**row("gap", "unanswerable"), "answerability": "unanswerable", "relevant_documents": []}
+    rows = [row(), gap, row("fixture-2")]
+    reports = []
+    events = []
+    for enabled in (False, True):
+        backend = TimedBackend()
+        monkeypatch.setattr(runner.time, "perf_counter", lambda backend=backend: backend.clock)
+
+        def progress(completed, total, backend=backend):
+            events.append((completed, total))
+            backend.clock += 500  # Simulate slow output; must not enter query latency.
+
+        reports.append(run_retrieval_evaluation(
+            rows, backend, variant, MAPPING, SPEC, progress=progress if enabled else None
+        ))
+    assert events == [(1, 2), (2, 2)]  # Neither warm-up nor unanswerable advances progress.
+    assert reports[0] == reports[1]

@@ -4,8 +4,10 @@ import argparse
 import hashlib
 import json
 import platform
+import sys
 from contextlib import nullcontext
 from dataclasses import asdict
+from functools import partial
 from importlib.metadata import version
 from pathlib import Path
 
@@ -16,6 +18,7 @@ from multilingual_rag_lab.application.corpus import IngestCorpus, validate_corpu
 from multilingual_rag_lab.bootstrap.composition import build_container, build_reindex_use_case
 from multilingual_rag_lab.bootstrap.settings import Settings
 from multilingual_rag_lab.domain import FileIndexManifest
+from multilingual_rag_lab.domain.index_manifest import atomic_json
 from multilingual_rag_lab.evaluation import (
     ExperimentalRetriever,
     load_dataset,
@@ -23,6 +26,10 @@ from multilingual_rag_lab.evaluation import (
 )
 from multilingual_rag_lab.evaluation.document_ids import resolve_document_ids
 from multilingual_rag_lab.evaluation.preflight import preflight
+
+
+def _report_progress(variant: str, completed: int, total: int) -> None:
+    print(f"[{variant}] {completed}/{total}", file=sys.stderr, flush=True)
 
 
 def main() -> None:
@@ -37,6 +44,13 @@ def main() -> None:
     commands.add_parser("reindex")
     evaluate = commands.add_parser("evaluate")
     evaluate.add_argument("dataset", type=Path)
+    evaluate.add_argument(
+        "--variants",
+        nargs="+",
+        choices=("dense", "hybrid", "hybrid_rerank"),
+        default=("dense", "hybrid", "hybrid_rerank"),
+        help="Variants to execute (default: all three); reranking can be expensive on CPU",
+    )
     evaluate.add_argument(
         "--output", type=Path, default=Path("evaluation/results/retrieval-v1.json")
     )
@@ -150,7 +164,7 @@ def main() -> None:
                 },
             }
             reports = {}
-            for variant in ("dense", "hybrid", "hybrid_rerank"):
+            for variant in dict.fromkeys(args.variants):
                 reranker = (
                     QwenReranker(device=container.settings.embedding_device)
                     if variant == "hybrid_rerank"
@@ -166,8 +180,7 @@ def main() -> None:
                     max_document_k=args.top_k,
                     candidate_pool=args.candidate_pool,
                     provenance=provenance,
+                    progress=partial(_report_progress, variant),
                 )
-            args.output.parent.mkdir(parents=True, exist_ok=True)
-            with args.output.open("x", encoding="utf-8") as stream:
-                json.dump(reports, stream, ensure_ascii=False, indent=2)
+                atomic_json(args.output, reports)
             print(json.dumps({"report": str(args.output), "variants": list(reports)}))

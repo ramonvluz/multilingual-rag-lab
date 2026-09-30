@@ -41,7 +41,7 @@ Run the explicit reindex command again only when rebuilding an index.
 
 The API runs without a Gemini key; generation then abstains while still returning retrieval evidence. Never expose this local demonstration service publicly without authentication, authorization, upload hardening, and operational controls.
 
-## Golden V1 retrieval evaluation (benchmark not yet run)
+## Golden V1 retrieval evaluation (no official results published)
 
 The approved, unchanged 48-query dataset is `evaluation/datasets/golden_v1.jsonl`.
 Its supplied audit and summary are in `evaluation/reports/`. Ground truth is binary
@@ -69,7 +69,16 @@ docker compose run --rm -v ./evaluation:/app/evaluation app rag-lab evaluate /ap
 ```
 
 This runs A (dense), B (dense + sparse BM25 + RRF), C (B + Qwen reranker), exclusively
-in the evaluation layer. Each dense/sparse branch supplies up to 30 chunks by default
+in the evaluation layer by default. To run only A/B, append `--variants dense hybrid`
+to the evaluate command. `hybrid_rerank` is optional and can be computationally expensive
+on CPU-only systems; selecting only A/B does not instantiate the reranker.
+Progress such as `[dense] 1/44` is printed to stderr for completed answerable queries,
+excluding warm-up and unanswerable queries, outside the retrieval latency timer.
+Each completed variant is atomically saved to the same JSON report. If a later variant
+is interrupted, completed variants remain available; the unfinished variant is not saved.
+This is not automatic resume: a new invocation still requires an unused output path.
+
+Each dense/sparse branch supplies up to 30 chunks by default
 (3 × the maximum document k). B uses the complete RRF union (constant 60); C reranks
 that complete union. All variants then keep the first occurrence of each document
 before taking the document top-k. An exhausted candidate pool is reported; it is not

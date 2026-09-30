@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Any, Protocol, cast
@@ -85,6 +86,7 @@ def run_retrieval_evaluation(
     max_document_k: int = 10,
     candidate_pool: int = 30,
     provenance: dict[str, Any] | None = None,
+    progress: Callable[[int, int], None] | None = None,
 ) -> dict[str, Any]:
     validate_dataset(rows)
     if variant not in {"dense", "hybrid", "hybrid_rerank"}:
@@ -104,6 +106,8 @@ def run_retrieval_evaluation(
         retrieve_candidates(backend, variant, WARMUP_QUERY, candidate_pool), document_ids
     )
     results = []
+    answerable_count = sum(row["answerability"] == "answerable" for row in rows)
+    completed = 0
     for row in rows:
         if row["answerability"] == "unanswerable":
             results.append(
@@ -152,6 +156,9 @@ def run_retrieval_evaluation(
                 "latency_ms": latency_ms,
             }
         )
+        completed += 1
+        if progress is not None:
+            progress(completed, answerable_count)
 
     def group(field: str) -> dict[str, Any]:
         grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
