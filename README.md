@@ -1,5 +1,9 @@
 # Multilingual RAG Lab
 
+[English](README.md) | [Português (Brasil)](README.pt-BR.md)
+
+This is the canonical technical README. Detailed technical documentation is maintained in English.
+
 A compact, evaluation-driven Retrieval-Augmented Generation laboratory for PT-BR, English, Spanish, and cross-lingual retrieval. It demonstrates a lightweight ports-and-adapters architecture with local Qwen embeddings, Qdrant retrieval, and optional grounded Gemini generation.
 
 ## Quick start
@@ -125,7 +129,7 @@ To also validate Qdrant without running retrieval or loading models, use the sam
 command with `--preflight-only` instead (inside Compose, mount `./evaluation:/app/evaluation`
 as shown below). This prints only integrity counts and the physical snapshot name.
 
-### Official run-001 and release-candidate reproduction
+### Official run-001 and completed post-freeze reproduction
 
 The official [run-001 JSON](evaluation/results/retrieval-v1-run-001.json) contains
 A (Dense) and B (Dense + BM25 + RRF). The reference environment is CPU-only Docker
@@ -151,9 +155,23 @@ official C result. See the [human report](evaluation/reports/retrieval_v1_summar
 for type/language cuts and limitations. These retrieval scores do not measure the
 operational evidence union or generation correctness.
 
-Run-002 is **PENDING RELEASE-CANDIDATE REPRODUCTION** after review and code freeze.
+[Run-002](evaluation/results/retrieval-v1-run-002.json) was completed after code
+freeze at `e3d56f5` as release reproducibility evidence. Run-001 remains the V1
+reference benchmark. Dense reproduced the document-level rankings and quality
+metrics of all 44 answerable queries exactly. Hybrid preserved aggregate
+Recall@1/@3/@5: 14/44 document rankings changed, but 13 of those queries retained
+their metrics. Only Q-024 changed quality metrics, with relevant `DOC-013` moving
+from position 4 to 5; Q-021 and Q-034 also changed top-10 document membership.
+See the [official comparison](evaluation/reports/retrieval_v1_comparison.md).
+The cause of Hybrid variation is not established, and two runs do not prove absolute
+determinism. Lower observed run-002 latency is not a proven performance improvement:
+cache, warm state, OS activity and thermal conditions were not statistically controlled.
+C remains experimental and was operationally infeasible on the reference CPU-only
+machine; no additional C run was needed for release closure.
+
 Do not reindex merely to repeat evaluation against the already compatible index.
-For a separately authorized run, build the reviewed source and use the existing
+For any separately authorized additional run, choose an unused output path, build
+the reviewed source and use the existing
 Compose network/cache/runtime. On native Linux, give container UID 10001 write
 access specifically to `evaluation/results`, not to the frozen dataset or reports:
 
@@ -162,12 +180,13 @@ docker compose build app
 docker compose run --rm --no-deps --user 0 -v ./evaluation:/app/evaluation app chown 10001:10001 /app/evaluation/results
 ```
 
-Then the official A/B release command is:
+For an additional authorized A/B evaluation, use a new output filename
+(replace `retrieval-new-run.json` if it already exists):
 
 ```bash
-make benchmark CONFIRM_BENCHMARK=yes
+make benchmark CONFIRM_BENCHMARK=yes OUTPUT=/app/evaluation/results/retrieval-new-run.json
 # Equivalent without GNU Make (only after separate authorization):
-docker compose run --rm -v ./evaluation:/app/evaluation app rag-lab evaluate /app/evaluation/datasets/golden_v1.jsonl --corpus /app/data/corpus/v1.0.0 --candidate-pool 30 --top-k 10 --variants dense hybrid --output /app/evaluation/results/retrieval-v1-run-002.json
+docker compose run --rm -v ./evaluation:/app/evaluation app rag-lab evaluate /app/evaluation/datasets/golden_v1.jsonl --corpus /app/data/corpus/v1.0.0 --candidate-pool 30 --top-k 10 --variants dense hybrid --output /app/evaluation/results/retrieval-new-run.json
 ```
 
 The CLI defaults to A/B when `--variants` is omitted, and the official Make wrapper
@@ -204,9 +223,9 @@ queries; percentiles use linear interpolation at `(n-1)*p`. The report records t
 policy, UTC timestamp, dataset/corpus hashes and versions, package versions, device,
 model names, IndexSpec/fingerprint, collection/alias, document mapping and pool sizes.
 Use a new output filename for every run; existing reports are not overwritten.
-`evaluation/results/` is versionable and contains the immutable run-001. Never
-overwrite it. Run-002 will be a separate artifact compared against run-001; record
-the freeze commit alongside the comparison rather than inventing historical Git provenance.
+`evaluation/results/` is versionable and contains immutable run-001 and run-002
+artifacts. Never overwrite either. The comparison records the supplied freeze commit
+separately; neither raw JSON contains a Git SHA, and none is retroactively inferred.
 
 Preflight checks schema (dense 1024/cosine, BM25 IDF), every official operational SHA,
 unknown documents, chunk identity/sequence, materialized vectors and total count.
@@ -220,7 +239,7 @@ for PT-BR/EN/ES; k=1.2, b=0.75, avg_len=256 and token_max_length=40 are explicit
 Embedding queries retain the approved `encode()` baseline without a query prompt.
 Qwen embedding/tokenizer and reranker revisions are pinned and reported. Warm-up
 loads the entire selected path; this small case study does not eliminate OS/cache/
-thermal noise or claim statistical significance from a single run.
+thermal noise or establish statistically significant performance differences from these two runs.
 
 ## Configuration and recovery
 
@@ -262,9 +281,9 @@ without deleting volumes. Ingest/reindex targets run inside Compose; `FILE` is a
 container path. `validate-corpus` is local and read-only. Make requires GNU Make;
 on Windows use the equivalent `uv`/`docker compose` commands directly.
 `make benchmark` is guarded by `CONFIRM_BENCHMARK=yes`; `OUTPUT` defaults to
-`/app/evaluation/results/retrieval-v1-run-002.json`. Use it only after separate
-benchmark authorization. CI and Docker use uv 0.9.27 and Python 3.12. Frozen corpus,
-Golden and run-001 bytes must be preserved; the report's historical package version
+`/app/evaluation/results/retrieval-v1-run-002.json`, which now exists; additional
+authorized runs require an unused `OUTPUT` path. CI and Docker use uv 0.9.27 and
+Python 3.12. Frozen corpus, Golden, run-001 and run-002 bytes must be preserved; each report's recorded package version
 must not be updated when the application version changes.
 
 ## License
