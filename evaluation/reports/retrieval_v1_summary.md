@@ -100,21 +100,23 @@ C (Hybrid + Qwen3-Reranker-0.6B) was interrupted during an earlier CPU attempt d
 to excessive operational cost. It remains experimental and explicitly selectable,
 but there is no completed official C result and no inferred score or latency for it.
 
-## Run-002 — PENDING RELEASE-CANDIDATE REPRODUCTION
+## Run-002 — post-freeze reproducibility check
 
-After review and code freeze, the separately authorized official wrapper selects
-only A/B and writes `/app/evaluation/results/retrieval-v1-run-002.json`:
+Run-001 remains the V1 reference benchmark; all tables above continue to describe
+it. [Run-002](../results/retrieval-v1-run-002.json) was completed on 2026-09-30 (UTC)
+after code freeze at `e3d56f5`, as supplied by the project owner, to check A/B
+reproducibility. The JSON does not record a Git SHA. Its configuration and recorded
+environment match run-001; only timestamps and the local application package
+version (`0.1.0` → `1.0.0`) differ in per-variant metadata.
 
-```bash
-make benchmark CONFIRM_BENCHMARK=yes
-```
+Dense reproduced all 44 answerable document rankings and per-query quality metrics
+exactly. Hybrid preserved aggregate Recall@1/@3/@5, with 14 changed document
+rankings (including two top-10 membership changes); only Q-024 changed quality
+metrics, producing small differences in MRR@10 and nDCG@5/@10. Latency varied
+between runs and is not evidence of a proven performance improvement.
 
-Follow the README's Linux output-permission instructions first. `OUTPUT` may name
-another unused path; the CLI rejects an existing output. Each completed variant is
-saved atomically. Do not overwrite or regenerate run-001, change the Golden, or
-reindex solely for reproduction. Keep candidate pool 30, maximum document k 10,
-warm-up policy, model revisions and compatible physical index fixed.
-
-Update this report only after run-002 with the actual freeze Git SHA, configuration
-and environment differences, then compare both stored reports. No run-002 values
-or conclusions exist yet; this release patch does not execute it.
+See the [run-001 × run-002 comparison](retrieval_v1_comparison.md) for verified
+metrics, per-query differences and provenance limits. No C execution was needed
+for release closure: it remains experimental and was considered operationally
+infeasible on the reference CPU-only machine. Neither run contains a C result.
+No retrieval was executed and no raw result was modified to prepare these reports.
